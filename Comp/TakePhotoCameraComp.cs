@@ -140,20 +140,20 @@ public class TakePhotoCameraComp : EventCompBase
 
     // ISO、快门、光圈在这里都是目标值，而不是渲染在相机上的值，中间可能会有过渡动画
 
-    public int ISO { get { GetValue("isoIdx", out int isoIdx); return evParaValue.isoValues[isoIdx]; } }
-    public float ShutterSpeed { get { GetValue("shutterSpeedIdx", out int shutterSpeedIdx); return 1.0f / evParaValue.SSValues[shutterSpeedIdx]; } }
-    public float ShutterSpeedInv { get { GetValue("shutterSpeedIdx", out int shutterSpeedIdx); return evParaValue.SSValues[shutterSpeedIdx]; } }
-    public float Aperture { get { GetValue("apertureIdx", out int apertureIdx); return evParaValue.FValues[apertureIdx]; } }
-    public float ISOEV { get { GetValue("isoIdx", out int isoIdx); return evParaValue.isoEvCache[isoIdx]; } } // = log2(ISO) - log2(100)
-    public float ShutterApertureEV { get { GetValue("shutterSpeedIdx", out int shutterSpeedIdx); GetValue("apertureIdx", out int apertureIdx); return evParaValue.baseEvCache[apertureIdx][shutterSpeedIdx]; } }// = EV(capture.shutter)_100 - log2(100)
-    public int EVCompensationPara { get { GetValue("exposureCompensationPara", out int exposureCompensation); return exposureCompensation; } }
-    public float EVCompensation { get { return (float)Math.Round(EVCompensationPara * 0.333, 1); } }
-    public LightMeteringMode MeteringMode { get { GetValue("lightMeteringMode", out int mode); return (LightMeteringMode)mode; } }
-    public Const.AutoFocusArea AutoFocusArea { get { GetValue("autoFocusArea", out int area); return (Const.AutoFocusArea)area; } }
-    public Vector2Int FocusIdxCenterOffset { get { GetValue("focusIdxCenterOffset", out Vector2Int offset); return offset; } }
-    public ExposurePriority EVPriority { get { GetValue("exposurePriority", out int priority); return (ExposurePriority)priority; } }
-    public float FocalLength { get { GetValue("focalLength", out float focalLength); return focalLength; } } // 焦距
-    public float FocusDistance { get { GetValue("focusDistance", out float focusDistance); return focusDistance; } } // 对焦距离
+    public int ISO => evParaValue.isoValues[GetISOIdx()];
+    public float ShutterSpeed => 1.0f / evParaValue.SSValues[GetShutterSpeedIdx()];
+    public float ShutterSpeedInv => evParaValue.SSValues[GetShutterSpeedIdx()];
+    public float Aperture => evParaValue.FValues[GetApertureIdx()];
+    public float ISOEV => evParaValue.isoEvCache[GetISOIdx()]; // = log2(ISO) - log2(100)
+    public float ShutterApertureEV => evParaValue.baseEvCache[GetApertureIdx()][GetShutterSpeedIdx()]; // = EV(capture.shutter)_100 - log2(100)
+    public int EVCompensationPara => (int)this["exposureCompensationPara"];
+    public float EVCompensation => (float)Math.Round(EVCompensationPara * 0.333, 1);
+    public LightMeteringMode MeteringMode => (LightMeteringMode)(int)this["lightMeteringMode"];
+    public Const.AutoFocusArea AutoFocusArea => (Const.AutoFocusArea)(int)this["autoFocusArea"];
+    public Vector2Int FocusIdxCenterOffset => (Vector2Int)this["focusIdxCenterOffset"];
+    public ExposurePriority EVPriority => (ExposurePriority)(int)this["exposurePriority"];
+    public float FocalLength => (float)this["focalLength"]; // 焦距
+    public float FocusDistance => (float)this["focusDistance"]; // 对焦距离
 
     public ExposurePriority[] AllEVPriority => new ExposurePriority[] { ExposurePriority.Manual, ExposurePriority.Aperture, ExposurePriority.ShutterSpeed, ExposurePriority.Program };
     public LightMeteringMode[] AllLightMeteringModes => new LightMeteringMode[] { LightMeteringMode.CenterWeighted, LightMeteringMode.Spot, LightMeteringMode.Matrix, LightMeteringMode.Average };
@@ -359,7 +359,7 @@ public class TakePhotoCameraComp : EventCompBase
         diff = Mathf.Clamp(diff, -1.0f, 1.0f); // 限制变化范围
         RealWantBaseEV100 -= diff;
         UpdateShutterAndAperture(WantBaseEV);
-        RealWantBaseEV100 = ShutterApertureEV - ISOEV;
+        RealWantBaseEV100 = ShutterApertureEV + EVCompensation - ISOEV;
         UpdateTargetOutRangeSettings();
     }
 
@@ -392,19 +392,17 @@ public class TakePhotoCameraComp : EventCompBase
     public void UpdateTargetOutRangeSettings()
     {
         var shutterApertureEV = ShutterApertureEV;
-        var realWantBaseEV100 = RealWantBaseEV100;
-        var isoev = ISOEV;
         var validTypes = Helpers.GetDefaultExposureControlType(EVPriority);
         int rangeSetting = 0;
         if (!validTypes.Contains(ExposureControlType.Aperture))
         {
             GetValue("apertureIdx", out int apertureIdx);
-            if (apertureIdx == evParaValue.FValues.Length - 1 && shutterApertureEV < realWantBaseEV100 + isoev)
+            if (apertureIdx == evParaValue.FValues.Length - 1 && shutterApertureEV < WantBaseEV)
             {
                 // 如果光圈是最小值，且曝光量小于目标曝光量，则认为光圈过小
                 rangeSetting |= (int)SettingParamType.Aperture;
             }
-            if (apertureIdx == 0 && shutterApertureEV > realWantBaseEV100 + isoev)
+            if (apertureIdx == 0 && shutterApertureEV > WantBaseEV)
             {
                 // 如果光圈是最大值，且曝光量大于目标曝光量，则认为光圈过大
                 rangeSetting |= (int)SettingParamType.Aperture;
@@ -413,12 +411,12 @@ public class TakePhotoCameraComp : EventCompBase
         if (!validTypes.Contains(ExposureControlType.ShutterSpeed))
         {
             GetValue("shutterSpeedIdx", out int shutterSpeedIdx);
-            if (shutterSpeedIdx == evParaValue.SSValues.Length - 1 && shutterApertureEV < realWantBaseEV100 + isoev)
+            if (shutterSpeedIdx == evParaValue.SSValues.Length - 1 && shutterApertureEV < WantBaseEV)
             {
                 // 如果快门速度是最小值，且曝光量小于目标曝光量，则认为快门速度过小
                 rangeSetting |= (int)SettingParamType.ShutterSpeed;
             }
-            if (shutterSpeedIdx == 0 && shutterApertureEV > realWantBaseEV100 + isoev)
+            if (shutterSpeedIdx == 0 && shutterApertureEV > WantBaseEV)
             {
                 // 如果快门速度是最大值，且曝光量大于目标曝光量，则认为快门速度过大
                 rangeSetting |= (int)SettingParamType.ShutterSpeed;

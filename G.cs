@@ -4,8 +4,7 @@ using UnityEngine;
 using System.Reflection;
 using UnityEngine.Events;
 using System;
-using Unity.VisualScripting;
-using OpenCover.Framework.Model;
+using UnityEngine.InputSystem;
 
 public enum LocalizationLanguage
 {
@@ -172,20 +171,26 @@ public sealed class G
         Timer.UnRegisterTimer(id);
     }
 
-    public static void RegisterInput(string actionName, InputEventType eventType, Func<UnityEngine.InputSystem.InputAction.CallbackContext, bool> func, GameObject responseObject, Func<bool> responseFunc = null)
+    public static void RegisterInput(string actionName, InputEventType listenType, Func<InputActionArgs, bool> func, GameObject responseObject, Func<bool> responseFunc = null)
     {
         if (InputMgr == null)
         {
             return;
         }
-        InputMgr.RegisterInput(actionName, eventType, func, responseObject, responseFunc: responseFunc);
+        InputMgr.RegisterInput(actionName, listenType, func, responseObject, responseFunc: responseFunc);
     }
-    public static void UnRegisterInput(string actionName, Func<UnityEngine.InputSystem.InputAction.CallbackContext, bool> func)
+    public static void UnRegisterInput(string actionName, Func<InputActionArgs, bool> func)
     {
         if (InputMgr == null)
         {
             return;
         }
         InputMgr.UnRegisterInput(actionName, func);
+    }
+
+    public static Sprite LoadSprite(string path, int idx=0)
+    {
+        var sprites = Resources.LoadAll<Sprite>(path);
+        return sprites != null && sprites.Length > idx ? sprites[idx] : null;
     }
 }

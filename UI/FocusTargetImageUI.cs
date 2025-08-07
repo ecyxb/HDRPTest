@@ -1,6 +1,5 @@
-using System.Collections;
+
 using System.Collections.Generic;
-using System.Net.Http.Headers;
 using DG.Tweening;
 using UnityEngine;
 
@@ -9,9 +8,8 @@ public class FocusTargetImageUI : UICommon
     public CameraTargetMono currentTarget { get; private set; }
     public CameraTargetCheckData latestCheckData { get; private set; }
     private Material focusImageMaterial;
-    private UnityEngine.UI.Image _image;
+    private UnityEngine.UI.Image _image => gameObject.GetComponent<UnityEngine.UI.Image>();
 
-    private bool _needPlayFadeAnim = false;
     private bool _isFadeOutAnimating = false;
     private Tween _animationTween;
 
@@ -19,20 +17,18 @@ public class FocusTargetImageUI : UICommon
     private bool IsFadeInAnimating => !_isFadeOutAnimating && _animationTween != null;
 
     // Start is called before the first frame update
-    protected override void OnInit()
+    protected override void OnLoad()
     {
-        base.OnInit();
+        base.OnLoad();
         focusImageMaterial = new Material(Shader.Find("UI/CircleCutout"));
-        _image = GetComponent<UnityEngine.UI.Image>();
         _image.material = focusImageMaterial;
         _image.color = new Color(1, 1, 1, 0); // 初始透明度为0
     }
-    void OnDestroy()
+    protected override void OnUnload()
     {
-
         if (focusImageMaterial != null)
         {
-            Destroy(focusImageMaterial);
+            GameObject.Destroy(focusImageMaterial);
             focusImageMaterial = null;
         }
     }
@@ -128,34 +124,33 @@ public class FocusTargetImageUI : UICommon
     private void _SetTransformCCS(float fadePercent)
     {
         _image.color = new Color(_image.color.r, _image.color.g, _image.color.b, 1 - fadePercent);
-        RectTransform rectTransform = GetComponent<RectTransform>();
         float radius = latestCheckData.GetRadius() * G.player.sfxComp.radialBlurFactor;
         Vector3 radialBlurPos = G.player.sfxComp.GetAfterRadialBlurScreenPosition(latestCheckData.screenPos);
-        var radialBlurPosUIPos = G.UI.ScreenPos2UIWorldPos(radialBlurPos, GetComponent<RectTransform>());
+        var radialBlurPosUIPos = G.UI.ScreenPos2UIWorldPos(radialBlurPos, transform);
 
         if (IsFadeOutAnimating)
         {
             radius = Mathf.Lerp(radius, radius * 1.3f, fadePercent);
             float innerRadius = latestCheckData.GetBorderSize() / radius;
-            rectTransform.sizeDelta = new Vector2(radius * 2, radius * 2);
+            transform.sizeDelta = new Vector2(radius * 2, radius * 2);
             focusImageMaterial.SetFloat("_InnerRadius", 1 - innerRadius);
             focusImageMaterial.SetFloat("_Smoothness", fadePercent * 0.1f);
         }
         else if (IsFadeInAnimating)
         {
 
-            rectTransform.position = radialBlurPosUIPos;
+            transform.position = radialBlurPosUIPos;
             radius = Mathf.Lerp(radius * 1.3f, radius, 1 - fadePercent);
             float innerRadius = latestCheckData.GetBorderSize() / radius;
-            rectTransform.sizeDelta = new Vector2(radius * 2, radius * 2);
+            transform.sizeDelta = new Vector2(radius * 2, radius * 2);
             focusImageMaterial.SetFloat("_InnerRadius", 1 - innerRadius);
             focusImageMaterial.SetFloat("_Smoothness", fadePercent * 0.1f);
         }
         else
         {
-            rectTransform.position = radialBlurPosUIPos;
+            transform.position = radialBlurPosUIPos;
             float innerRadius = latestCheckData.GetBorderSize() / radius;
-            rectTransform.sizeDelta = new Vector2(radius * 2, radius * 2);
+            transform.sizeDelta = new Vector2(radius * 2, radius * 2);
             focusImageMaterial.SetFloat("_InnerRadius", 1 - innerRadius);
             focusImageMaterial.SetFloat("_Smoothness", fadePercent * 0.1f);
         }

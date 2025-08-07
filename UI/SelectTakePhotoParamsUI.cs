@@ -6,7 +6,14 @@ using UnityEngine;
 
 public class SelectTakePhotoParamsUI : UICommon
 {
-
+    protected static new Dictionary<string, string> __shortcuts__ = new Dictionary<string, string>();
+    protected override Dictionary<string, string> ShortCutsCache => __shortcuts__;
+    protected override string[] SHORTCUT_OBJECTS => new string[]
+    {
+        "SettingParamTypeUIAP",
+        "SelectTakePhotoParamsValueUIAP",
+        "Content",
+    };
     private static SettingParamType[] settingParamQueue = new SettingParamType[]
     {
         SettingParamType.AutoFocusArea,
@@ -15,33 +22,23 @@ public class SelectTakePhotoParamsUI : UICommon
         // SettingParamType.ExposureCompensation
     };
     // Start is called before the first frame update
-    public RectTransform content;
+    private RectTransform content => this["Content"];
 
     private ScrollViewHelper m_Sih;
-    private RectTransform m_settingTypeUIOrigin => this["SettingParamTypeUIAP"];
     private SettingParamType m_currentSettingType = SettingParamType.None;
+    private SelectTakePhotoParamsValueUI m_selectTakePhotoParamsValueUI = null;
 
-    protected override string[] SHORTCUT_OBJECTS => new string[]
-    {
-        "SettingParamTypeUIAP",
-        "SelectTakePhotoParamsValueUIAP",
-    };
-
-    protected override List<BindUICommonArgs> UICOMMON_BIND => new List<BindUICommonArgs>
-    {
-        new BindUICommonArgs("SettingParamTypeUI", "SettingParamTypeUIAP", null, UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent),
-        new BindUICommonArgs("SelectTakePhotoParamsValueUI", "SelectTakePhotoParamsValueUIAP", null, UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent)
-    };
     protected override void OnLoad()
     {
-        m_Sih = new ScrollViewHelper(this, content, null, isVertical: false, isHorizontal: true);
-        m_settingTypeUIOrigin.gameObject.SetActive(false);
-        GetUICommon<SelectTakePhotoParamsValueUI>("SelectTakePhotoParamsValueUI").Show();
+        // var settingParamTypeUIOrigin = AttachUI<SettingParamTypeUI>("SettingParamTypeUI", "SettingParamTypeUIAP", UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent);
+        m_selectTakePhotoParamsValueUI = AttachUI<SelectTakePhotoParamsValueUI>("SelectTakePhotoParamsValueUI", "SelectTakePhotoParamsValueUIAP", UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent);
+        m_selectTakePhotoParamsValueUI.Show();
 
+        m_Sih = new ScrollViewHelper(this, content, this["SettingParamTypeUIAP"], isVertical: false, isHorizontal: true);
         m_Sih.ClearItems();
-        foreach (var settingType in settingParamQueue)
+        foreach (var _ in settingParamQueue)
         {
-            m_Sih.AddItem(m_settingTypeUIOrigin, activeItem: true).GetComponentInChildren<SettingParamTypeUI>(); ;
+            m_Sih.AddItemAsUICommonFather<SettingParamTypeUI>("SettingParamTypeUI", aspectFit: UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent);
         }
         m_Sih.UpdateLayout();
 
@@ -53,7 +50,7 @@ public class SelectTakePhotoParamsUI : UICommon
         base.Register();
         if (G.InputMgr)
         {
-            G.InputMgr.RegisterInput("MainTab", InputEventType.Canceled | InputEventType.SWALLOW_ALL, OnReactEClick, gameObject);
+            G.InputMgr.RegisterInput("MainTab", InputEventType.Deactivated, OnReactEClick, gameObject);
         }
         if (G.player)
         {
@@ -76,7 +73,7 @@ public class SelectTakePhotoParamsUI : UICommon
             G.player.takePhotoCameraComp.UnRegisterProp("autoFocusArea", (Action<int, int>)OnAutoFocusAreaChanged);
         }
     }
-    public bool OnReactEClick(UnityEngine.InputSystem.InputAction.CallbackContext context)
+    public bool OnReactEClick(InputActionArgs args)
     {
         var index = Array.IndexOf(settingParamQueue, m_currentSettingType);
         if (index < 0 || index >= settingParamQueue.Length - 1)
@@ -94,10 +91,9 @@ public class SelectTakePhotoParamsUI : UICommon
         {
             return; // No change needed
         }
-        SelectTakePhotoParamsValueUI selectTakePhotoParamsValueUI = GetUICommon<SelectTakePhotoParamsValueUI>("SelectTakePhotoParamsValueUI");
         for (int i = 0; i < m_Sih.Items.Count; i++)
         {
-            var settingTypeUI = m_Sih.Items[i].GetComponentInChildren<SettingParamTypeUI>();
+            var settingTypeUI = m_Sih.Items[i] as SettingParamTypeUI;
             var settingType = settingParamQueue[i];
             switch (settingType)
             {
@@ -119,13 +115,13 @@ public class SelectTakePhotoParamsUI : UICommon
         switch (currentType)
         {
             case SettingParamType.LightMeteringMode:
-                selectTakePhotoParamsValueUI.SetLightMeteringModeValues(G.player.takePhotoCameraComp.AllLightMeteringModes, G.player.takePhotoCameraComp.MeteringMode);
+                m_selectTakePhotoParamsValueUI.SetLightMeteringModeValues(G.player.takePhotoCameraComp.AllLightMeteringModes, G.player.takePhotoCameraComp.MeteringMode);
                 break;
             case SettingParamType.ExposurePriority:
-                selectTakePhotoParamsValueUI.SetExposurePriorityValues(G.player.takePhotoCameraComp.AllEVPriority, G.player.takePhotoCameraComp.EVPriority);
+                m_selectTakePhotoParamsValueUI.SetExposurePriorityValues(G.player.takePhotoCameraComp.AllEVPriority, G.player.takePhotoCameraComp.EVPriority);
                 break;
             case SettingParamType.AutoFocusArea:
-                selectTakePhotoParamsValueUI.SetAutoFocusAreaValues(G.player.takePhotoCameraComp.AllAutoFocusAreas, G.player.takePhotoCameraComp.AutoFocusArea);
+                m_selectTakePhotoParamsValueUI.SetAutoFocusAreaValues(G.player.takePhotoCameraComp.AllAutoFocusAreas, G.player.takePhotoCameraComp.AutoFocusArea);
                 break;
             default:
                 break;
@@ -139,11 +135,8 @@ public class SelectTakePhotoParamsUI : UICommon
         {
             ExposurePriority exposurePriority = G.player.takePhotoCameraComp.EVPriority;
             int idx = Array.IndexOf(settingParamQueue, SettingParamType.ExposurePriority);
-            m_Sih.Items[idx].GetComponentInChildren<SettingParamTypeUI>().SetExposurePriorityValue(exposurePriority, true);
-
-
-            SelectTakePhotoParamsValueUI selectTakePhotoParamsValueUI = GetUICommon<SelectTakePhotoParamsValueUI>("SelectTakePhotoParamsValueUI");
-            selectTakePhotoParamsValueUI.SetExposurePriorityValues(G.player.takePhotoCameraComp.AllEVPriority, exposurePriority);
+            (m_Sih.Items[idx] as SettingParamTypeUI)?.SetExposurePriorityValue(exposurePriority, true);
+            m_selectTakePhotoParamsValueUI.SetExposurePriorityValues(G.player.takePhotoCameraComp.AllEVPriority, exposurePriority);
         }
     }
 
@@ -153,10 +146,8 @@ public class SelectTakePhotoParamsUI : UICommon
         {
             LightMeteringMode lightMeteringMode = G.player.takePhotoCameraComp.MeteringMode;
             int idx = Array.IndexOf(settingParamQueue, SettingParamType.LightMeteringMode);
-            m_Sih.Items[idx].GetComponentInChildren<SettingParamTypeUI>().SetLightMeteringModeValue(lightMeteringMode, true);
-
-            SelectTakePhotoParamsValueUI selectTakePhotoParamsValueUI = GetUICommon<SelectTakePhotoParamsValueUI>("SelectTakePhotoParamsValueUI");
-            selectTakePhotoParamsValueUI.SetLightMeteringModeValues(G.player.takePhotoCameraComp.AllLightMeteringModes, lightMeteringMode);
+            (m_Sih.Items[idx] as SettingParamTypeUI)?.SetLightMeteringModeValue(lightMeteringMode, true);
+            m_selectTakePhotoParamsValueUI.SetLightMeteringModeValues(G.player.takePhotoCameraComp.AllLightMeteringModes, lightMeteringMode);
         }
     }
     public void OnAutoFocusAreaChanged(int oldArea, int newArea)
@@ -165,10 +156,8 @@ public class SelectTakePhotoParamsUI : UICommon
         {
             Const.AutoFocusArea autoFocusArea = G.player.takePhotoCameraComp.AutoFocusArea;
             int idx = Array.IndexOf(settingParamQueue, SettingParamType.AutoFocusArea);
-            m_Sih.Items[idx].GetComponentInChildren<SettingParamTypeUI>().SetAutoFocusAreaValue(autoFocusArea, true);
-
-            SelectTakePhotoParamsValueUI selectTakePhotoParamsValueUI = GetUICommon<SelectTakePhotoParamsValueUI>("SelectTakePhotoParamsValueUI");
-            selectTakePhotoParamsValueUI.SetAutoFocusAreaValues(G.player.takePhotoCameraComp.AllAutoFocusAreas, autoFocusArea);
+            (m_Sih.Items[idx] as SettingParamTypeUI)?.SetAutoFocusAreaValue(autoFocusArea, true);
+            m_selectTakePhotoParamsValueUI.SetAutoFocusAreaValues(G.player.takePhotoCameraComp.AllAutoFocusAreas, autoFocusArea);
         }
     }
     #endregion

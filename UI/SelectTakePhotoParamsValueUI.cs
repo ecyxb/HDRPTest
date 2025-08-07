@@ -6,28 +6,25 @@ using UnityEngine;
 
 public class SelectTakePhotoParamsValueUI : UICommon
 {
-    public RectTransform content;
+    protected static new Dictionary<string, string> __shortcuts__ = new Dictionary<string, string>();
+    protected override Dictionary<string, string> ShortCutsCache => __shortcuts__;
+    protected override string[] SHORTCUT_OBJECTS => new string[]
+    {
+        "SettingParamTypeUIAP",
+        "HintText",
+        "Content",
+    };
 
+    private RectTransform content => this["Content"];
     private ScrollViewHelper m_Sih;
 
     private object m_Datas = null;
     private int m_DataIndex = 0;
     private SettingParamType m_currentSettingType = SettingParamType.None;
 
-    protected override string[] SHORTCUT_OBJECTS => new string[]
-    {
-        "SettingParamTypeUIAP",
-        "HintText",
-    };
-
-    protected override List<BindUICommonArgs> UICOMMON_BIND => new List<BindUICommonArgs>
-    {
-        new BindUICommonArgs("SettingParamTypeUI", "SettingParamTypeUIAP", null, UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent)
-    };
     protected override void OnLoad()
     {
         m_Sih = new ScrollViewHelper(this, content, this["SettingParamTypeUIAP"], isVertical: false, isHorizontal: true);
-        this["SettingParamTypeUIAP"].gameObject.SetActive(false);
     }
 
     protected override void Register()
@@ -35,8 +32,8 @@ public class SelectTakePhotoParamsValueUI : UICommon
         base.Register();
         if (G.InputMgr)
         {
-            G.InputMgr.RegisterInput("REACT_E", InputEventType.Canceled | InputEventType.SWALLOW_ALL, OnReactEClick, gameObject);
-            G.InputMgr.RegisterInput("REACT_Q", InputEventType.Canceled | InputEventType.SWALLOW_ALL, OnReactQClick, gameObject);
+            G.InputMgr.RegisterInput("REACT_E", InputEventType.Clicked, OnReactEClick, gameObject);
+            G.InputMgr.RegisterInput("REACT_Q", InputEventType.Clicked, OnReactQClick, gameObject);
         }
     }
     protected override void UnRegister()
@@ -48,12 +45,12 @@ public class SelectTakePhotoParamsValueUI : UICommon
             G.InputMgr.UnRegisterInput("REACT_Q", OnReactQClick);
         }
     }
-    public bool OnReactEClick(UnityEngine.InputSystem.InputAction.CallbackContext context)
+    public bool OnReactEClick(InputActionArgs args)
     {
         OffsetIndex(false);
         return true;
     }
-    public bool OnReactQClick(UnityEngine.InputSystem.InputAction.CallbackContext context)
+    public bool OnReactQClick(InputActionArgs args)
     {
         OffsetIndex(true);
         return true;
@@ -96,7 +93,7 @@ public class SelectTakePhotoParamsValueUI : UICommon
         for (int i = 0; i < allPriorities.Length; i++)
         {
             bool isSelected = allPriorities[i] == selectedPriority;
-            var newObj = m_Sih.AddItem(activeItem: true).GetComponentInChildren<SettingParamTypeUI>();
+            var newObj = m_Sih.AddItemAsUICommonFather<SettingParamTypeUI>("SettingParamTypeUI", aspectFit: UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent);
             newObj.SetExposurePriorityValue(allPriorities[i], isSelected);
             if (isSelected)
             {
@@ -114,7 +111,7 @@ public class SelectTakePhotoParamsValueUI : UICommon
         for (int i = 0; i < allModes.Length; i++)
         {
             bool isSelected = allModes[i] == selectedMode;
-            var newObj = m_Sih.AddItem(activeItem: true).GetComponentInChildren<SettingParamTypeUI>();
+            var newObj = m_Sih.AddItemAsUICommonFather<SettingParamTypeUI>("SettingParamTypeUI", aspectFit: UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent);
             newObj.SetLightMeteringModeValue(allModes[i], isSelected);
             if (isSelected)
             {
@@ -133,7 +130,7 @@ public class SelectTakePhotoParamsValueUI : UICommon
         for (int i = 0; i < allAreas.Length; i++)
         {
             bool isSelected = allAreas[i] == selectedArea;
-            var newObj = m_Sih.AddItem(activeItem: true).GetComponentInChildren<SettingParamTypeUI>();
+            var newObj = m_Sih.AddItemAsUICommonFather<SettingParamTypeUI>("SettingParamTypeUI", aspectFit: UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent);
             newObj.SetAutoFocusAreaValue(allAreas[i], isSelected);
             if (isSelected)
             {

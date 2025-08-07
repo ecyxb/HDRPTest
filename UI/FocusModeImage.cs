@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 public class FocusModeImage : UICommon
 {
-    public TextMeshProUGUI focusModeText;
+    private TextMeshProUGUI focusModeText => gameObject.GetComponentInChildren<TextMeshProUGUI>();
     protected override void OnLoad()
     {
         SetBgVisibility(false);
@@ -14,7 +14,7 @@ public class FocusModeImage : UICommon
 
     public void SetBgVisibility(bool isVisible)
     {
-        GetComponent<Image>().enabled = isVisible;
+        gameObject.GetComponent<Image>().enabled = isVisible;
     }
     public void SetSelected(bool isSelected)
     {

@@ -6,15 +6,27 @@ using UnityEngine;
 
 public class ExposureCompensationRule : UICommon
 {
-    public RectTransform upIconContent;
-    public RectTransform upIcon;
-    public RectTransform zeroImage;
-    [Space(10)]
-    public RectTransform downIconContent;
-    public RectTransform downIcon;
-    [Space(10)]
-    public RectTransform leftArrow;
-    public RectTransform rightArrow;
+    protected static new Dictionary<string, string> __shortcuts__ = new Dictionary<string, string>();
+    protected override Dictionary<string, string> ShortCutsCache => __shortcuts__;
+    protected override string[] SHORTCUT_OBJECTS => new string[]
+    {
+        "UpContent",
+        "UpIcon",
+        "zeroimage",
+        "DownContent",
+        "DownIcon",
+        "leftarrow",
+        "rightarrow",
+    };
+
+
+    private RectTransform upIconContent => this["UpContent"];
+    private RectTransform upIcon => this["UpIcon"];
+    private RectTransform zeroImage => this["zeroimage"];
+    private RectTransform downIconContent => this["DownContent"];
+    private RectTransform downIcon => this["DownIcon"];
+    private RectTransform leftArrow => this["leftarrow"];
+    private RectTransform rightArrow => this["rightarrow"];
 
     private ScrollViewHelper m_sihUp;
     private ScrollViewHelper m_sihDown;
@@ -24,13 +36,6 @@ public class ExposureCompensationRule : UICommon
     private uint zeroBlinkTimer = 0;
 
     // Start is called before the first frame update
-
-    protected override void OnInit()
-    {
-        base.OnInit();
-
-    }
-
     protected override void OnLoad()
     {
         m_sihUp = new ScrollViewHelper(this, upIconContent, upIcon, isVertical: false, isHorizontal: true);
@@ -78,8 +83,7 @@ public class ExposureCompensationRule : UICommon
     void LoadUp()
     {
         //上方
-
-        upIcon.gameObject.SetActive(false);
+        // upIcon.gameObject.SetActive(false);
         m_sihUp.ClearItems();
 
         var itemMiddle = m_sihUp.AddItem(); //较长的
@@ -130,10 +134,5 @@ public class ExposureCompensationRule : UICommon
         }
         rightArrow.gameObject.SetActive(compensationEV > maxEvPara);
         leftArrow.gameObject.SetActive(compensationEV < minEvPara);
-    }
-    // Update is called once per frame
-    void Update()
-    {
-        
     }
 }

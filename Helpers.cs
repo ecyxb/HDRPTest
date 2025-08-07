@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting;
+using System.Text;
 
 public static class Helpers
 {
@@ -279,6 +280,24 @@ public static class Helpers
     }
 
     #region  UIHelpers
+    public static string GetGameObjectPath(Transform obj, Transform stopAt, StringBuilder sb = null)
+    {
+        sb = sb ?? new StringBuilder();
+        sb.Clear();
+        sb.Append(obj.name);
+        while (obj.parent != null)
+        {
+            if (obj.parent == stopAt)
+            {
+                // If the parent is a UICommon, we stop here
+                break;
+            }
+            obj = obj.parent;
+            sb.Insert(0, obj.name + "/");
+        }
+        return sb.ToString();
+    }
+
     public static GameObject FindUIPrefab(string uiName)
     {
         GameObject prefab = Resources.Load<GameObject>($"UIPrefabs/{uiName}");
@@ -290,37 +309,26 @@ public static class Helpers
         return prefab;
     }
 
-    // DynamicAttach是一个递归操作，会动态加载所有子孙组件
-    // 如果组件是通过复制得到的，则使用RecursionOnLoad调用所有子组件的onload。
-    public static T DynamicAttach<T>(UICommon parent, string uiName, RectTransform attachPos, AspectRatioFitter.AspectMode aspectFit = AspectRatioFitter.AspectMode.None) where T : UICommon
+    public static void EnsureAspectRatioFitter(RectTransform obj, AspectRatioFitter.AspectMode aspectFit)
     {
-        return DynamicAttach(parent, uiName, attachPos, aspectFit) as T;
-    }
-    public static UICommon DynamicAttach(UICommon parent, string uiName, RectTransform attachPos, AspectRatioFitter.AspectMode aspectFit = AspectRatioFitter.AspectMode.None)
-    {
-        GameObject prefab = FindUIPrefab(uiName);
-        if (prefab == null)
+        AspectRatioFitter fitter = obj.GetComponent<AspectRatioFitter>();
+        if (aspectFit == AspectRatioFitter.AspectMode.None)
         {
-            return null;
+            if (fitter != null)
+            {
+                fitter.aspectMode = AspectRatioFitter.AspectMode.None;
+            }
         }
-        var obj = UIInstantiate(prefab, parent, attachPos.GetComponent<RectTransform>(), aspectFit, recursion_attach: true);
-        obj.__on_load__();
-        return obj;
-    }
-
-    public static T DynamicAttach<T>(UICommon parent, string uiName, string attachPosName, AspectRatioFitter.AspectMode aspectFit = AspectRatioFitter.AspectMode.None) where T : UICommon
-    {
-        return DynamicAttach(parent, uiName, attachPosName, aspectFit) as T;
-    }
-    public static UICommon DynamicAttach(UICommon parent, string uiName, string attachPosName, AspectRatioFitter.AspectMode aspectFit = AspectRatioFitter.AspectMode.None)
-    {
-        var attachPos = parent.transform.Find(attachPosName) as RectTransform;
-        if (attachPos == null)
+        else
         {
-            Debug.LogError($"Attach position {attachPosName} not found in parent {parent.name}.");
-            return null;
+            var ratio = obj.rect.width / obj.rect.height;
+            fitter = fitter ?? obj.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = aspectFit;
+            if (aspectFit == AspectRatioFitter.AspectMode.FitInParent)
+            {
+                fitter.aspectRatio = ratio;
+            }
         }
-        return DynamicAttach(parent, uiName, attachPos, aspectFit);
     }
 
     public static Vector3 WorldPos2ScreenPos(Vector3 worldPos, Camera camera)
@@ -339,70 +347,6 @@ public static class Helpers
         // Normalize the angle to the range [-180, 180]
         return Mathf.Repeat(angle + 180f, 360f) - 180f;
     }
-
-
-    #endregion
-    public static T UIInstantiate<T>(GameObject original, UICommon parent, RectTransform attachPos = null, AspectRatioFitter.AspectMode aspectFit = AspectRatioFitter.AspectMode.None, bool recursion_attach = false) where T : UICommon
-    {
-        return UIInstantiate(original, parent, attachPos, aspectFit, recursion_attach) as T;
-    }
-    public static UICommon UIInstantiate(GameObject original, UICommon parent, RectTransform attachPos = null, AspectRatioFitter.AspectMode aspectFit = AspectRatioFitter.AspectMode.None, bool recursion_attach = false)
-    {
-        GameObject newObj;
-        if (attachPos != null)
-        {
-            newObj = GameObject.Instantiate(original, attachPos);
-            AspectRatioFitter fitter = newObj.GetComponent<AspectRatioFitter>();
-            // RectTransform rectTransform = newObj.GetComponent<RectTransform>();
-            if (aspectFit == AspectRatioFitter.AspectMode.None)
-            {
-                if (fitter != null)
-                {
-                    fitter.aspectMode = AspectRatioFitter.AspectMode.None;
-                }
-            }
-            else
-            {
-                var transform = newObj.GetComponent<RectTransform>();
-                var ratio = transform.rect.width / transform.rect.height;
-                fitter = fitter ?? newObj.AddComponent<AspectRatioFitter>();
-                fitter.aspectMode = aspectFit;
-                if (aspectFit == AspectRatioFitter.AspectMode.FitInParent)
-                {
-                    fitter.aspectRatio = ratio;
-                }
-            }
-        }
-        else
-        {
-            newObj = GameObject.Instantiate(original);
-        }
-
-        UICommon ruleComponent = newObj.GetComponent<UICommon>();
-        if (ruleComponent == null)
-        {
-            Debug.LogError($"UI prefab {original.name} does not have a component of type {typeof(UICommon).Name}.");
-            return null;
-        }
-        if (recursion_attach)
-        {
-            ruleComponent.__auto_attach__();
-        }
-        return ruleComponent;
-    }
-
-    public static void RecursionOnLoad(GameObject obj)
-    {
-        if (obj == null)
-        {
-            return;
-        }
-        var alluiCommons = obj.GetComponentsInChildren<UICommon>(true);
-        foreach (var uiCommon in alluiCommons.Reverse())
-        {
-            uiCommon.__on_load__();
-        }
-    }
-    
-
 }
+
+#endregion

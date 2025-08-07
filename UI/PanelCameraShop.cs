@@ -18,7 +18,7 @@ public class PanelCameraShop : PanelBase
 
     void Start()
     {
-        m_sih = new ScrollViewHelper(this, shopScrollView.GetComponent<ScrollRect>(), leftCameraItem);
+        // m_sih = new ScrollViewHelper(this, shopScrollView.GetComponent<ScrollRect>(), leftCameraItem);
         shopTitle.GetComponent<TextMeshProUGUI>().text = DataLoader.Tr("商店");
         btnLens.SetString(DataLoader.Tr("镜头"));
         btnCamera.SetString(DataLoader.Tr("相机"));
@@ -35,37 +35,37 @@ public class PanelCameraShop : PanelBase
     }
     void ShowCameraItemList()
     {
-        m_sih.ClearItems();
-        foreach (var cameraData in DataLoader.Instance.cameraData)
-        {
-            var item = m_sih.AddItem();
-            var ShopCameraItem = item.GetComponent<ShopCameraItem>();
-            ShopCameraItem.SetData(cameraData.Value);
-        }
-        m_sih.UpdateLayout();
+        // m_sih.ClearItems();
+        // foreach (var cameraData in DataLoader.Instance.cameraData)
+        // {
+        //     var item = m_sih.AddItem();
+        //     var ShopCameraItem = item.GetComponent<ShopCameraItem>();
+        //     ShopCameraItem.SetData(cameraData.Value);
+        // }
+        // m_sih.UpdateLayout();
     }
 
     void ShowLensItemList()
     {
-        m_sih.ClearItems();
-        foreach (var lensData in DataLoader.Instance.lensData)
-        {
-            var item = m_sih.AddItem();
-            var ShopCameraItem = item.GetComponent<ShopCameraItem>();
-            ShopCameraItem.SetData(lensData.Value);
-        }
-        m_sih.UpdateLayout();
+        // m_sih.ClearItems();
+        // foreach (var lensData in DataLoader.Instance.lensData)
+        // {
+        //     var item = m_sih.AddItem();
+        //     var ShopCameraItem = item.GetComponent<ShopCameraItem>();
+        //     ShopCameraItem.SetData(lensData.Value);
+        // }
+        // m_sih.UpdateLayout();
     }
     void ShowOtherItemList()
     {
-        m_sih.ClearItems();
-        foreach (var plugData in DataLoader.Instance.plugData)
-        {
-            var item = m_sih.AddItem();
-            var ShopCameraItem = item.GetComponent<ShopCameraItem>();
-            ShopCameraItem.SetData(plugData.Value);
-        }
-        m_sih.UpdateLayout();
+        // m_sih.ClearItems();
+        // foreach (var plugData in DataLoader.Instance.plugData)
+        // {
+        //     var item = m_sih.AddItem();
+        //     var ShopCameraItem = item.GetComponent<ShopCameraItem>();
+        //     ShopCameraItem.SetData(plugData.Value);
+        // }
+        // m_sih.UpdateLayout();
     }
 
     // Update is called once per frame

@@ -4,12 +4,8 @@ using UnityEngine;
 
 public class SettingParamTypeUI : UICommon
 {
-    public RectTransform meteringMode => this["LightMeteringModeImageAP"];
-    public RectTransform exposePriority => this["ExposePriorityUIAP"];
-    public RectTransform autoFocusArea => this["AutoFocusAreaImageAP"];
-
-    private SettingParamType currentSettingType = SettingParamType.None;
-
+    protected static new Dictionary<string, string> __shortcuts__ = new Dictionary<string, string>();
+    protected override Dictionary<string, string> ShortCutsCache => __shortcuts__;
     protected override string[] SHORTCUT_OBJECTS => new string[]
     {
         "LightMeteringModeImageAP",
@@ -17,17 +13,22 @@ public class SettingParamTypeUI : UICommon
         "AutoFocusAreaImageAP"
     };
 
-    protected override List<BindUICommonArgs> UICOMMON_BIND
+    public RectTransform meteringMode => this["LightMeteringModeImageAP"];
+    public RectTransform exposePriority => this["ExposePriorityUIAP"];
+    public RectTransform autoFocusArea => this["AutoFocusAreaImageAP"];
+
+    private SettingParamType currentSettingType = SettingParamType.None;
+
+    private LightMeteringModeImage meteringModeUI = null;
+    private ExposePriorityUI exposePriorityUI = null;
+    private AutoFocusAreaImage autoFocusAreaUI = null;
+
+    protected override void OnLoad()
     {
-        get
-        {
-            return new List<BindUICommonArgs>
-            {
-                new BindUICommonArgs("LightMeteringModeImage", "LightMeteringModeImageAP", null, UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent),
-                new BindUICommonArgs("ExposePriorityUI", "ExposePriorityUIAP", null, UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent),
-                new BindUICommonArgs("AutoFocusAreaImage", "AutoFocusAreaImageAP", null, UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent)
-            };
-        }
+        base.OnLoad();
+        meteringModeUI = AttachUI<LightMeteringModeImage>("LightMeteringModeImage", "LightMeteringModeImageAP", UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent);
+        exposePriorityUI = AttachUI<ExposePriorityUI>("ExposePriorityUI", "ExposePriorityUIAP", UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent);
+        autoFocusAreaUI = AttachUI<AutoFocusAreaImage>("AutoFocusAreaImage", "AutoFocusAreaImageAP", UnityEngine.UI.AspectRatioFitter.AspectMode.FitInParent);
     }
 
     private void SetSettingParamType(SettingParamType type)
@@ -65,7 +66,6 @@ public class SettingParamTypeUI : UICommon
     public void SetExposurePriorityValue(ExposurePriority exposurePriority, bool isSelected = false)
     {
         SetSettingParamType(SettingParamType.ExposurePriority);
-        var exposePriorityUI = GetUICommon<ExposePriorityUI>("ExposePriorityUI");
         exposePriorityUI.SetExposurePriority(exposurePriority);
         exposePriorityUI.SetSelected(isSelected);
     }
@@ -73,14 +73,12 @@ public class SettingParamTypeUI : UICommon
     public void SetLightMeteringModeValue(LightMeteringMode lightMeteringMode, bool isSelected = false)
     {
         SetSettingParamType(SettingParamType.LightMeteringMode);
-        var lightMeteringModeUI = GetUICommon<LightMeteringModeImage>("LightMeteringModeImage");
-        lightMeteringModeUI.SetLightMeteringMode(lightMeteringMode);
-        lightMeteringModeUI.SetSelected(isSelected);
+        meteringModeUI.SetLightMeteringMode(lightMeteringMode);
+        meteringModeUI.SetSelected(isSelected);
     }
     public void SetAutoFocusAreaValue(Const.AutoFocusArea autoFocusArea, bool isSelected = false)
     {
         SetSettingParamType(SettingParamType.AutoFocusArea);
-        var autoFocusAreaUI = GetUICommon<AutoFocusAreaImage>("AutoFocusAreaImage");
         autoFocusAreaUI.SetAutoFocusArea(autoFocusArea);
         autoFocusAreaUI.SetSelected(isSelected);
     }
