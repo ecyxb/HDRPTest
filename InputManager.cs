@@ -52,7 +52,7 @@ public class InputActionArgs
 }
 
 
-public class InputEventObject
+public class InputFuncData
 {
     public bool actived;
     public bool startListend;
@@ -117,7 +117,7 @@ public class InputEventObject
         startListend = false;
     }
 
-    public InputEventObject(Func<InputActionArgs, bool> cb, GameObject responseObject, InputEventType listenType, Func<bool> responseFunc = null)
+    public InputFuncData(Func<InputActionArgs, bool> cb, GameObject responseObject, InputEventType listenType, Func<bool> responseFunc = null)
     {
         this.cb = cb;
         this.responseObject = responseObject;
@@ -133,7 +133,7 @@ public class InputEventObject
 public class InputManager : MonoBehaviour
 {
     private PlayerInput m_playerInput;
-    private Dictionary<string, List<InputEventObject>> m_actions = new Dictionary<string, List<InputEventObject>>();
+    private Dictionary<string, List<InputFuncData>> m_actions = new Dictionary<string, List<InputFuncData>>();
     private Dictionary<string, InputActionArgs> m_lastInputArgs = new Dictionary<string, InputActionArgs>();
     public bool IsCurrentDeviceMouse
     {
@@ -173,12 +173,12 @@ public class InputManager : MonoBehaviour
             return;
         }
 
-        if (!m_actions.TryGetValue(actionName, out List<InputEventObject> actions))
+        if (!m_actions.TryGetValue(actionName, out List<InputFuncData> actions))
         {
-            actions = new List<InputEventObject>();
+            actions = new List<InputFuncData>();
             m_actions.Add(actionName, actions);
         }
-        actions.Add(new InputEventObject(func, responseObject, listenType, responseFunc));
+        actions.Add(new InputFuncData(func, responseObject, listenType, responseFunc));
     }
     public void UnRegisterInput(string actionName, Func<InputActionArgs, bool> func)
     {
@@ -187,7 +187,7 @@ public class InputManager : MonoBehaviour
             Debug.LogWarning("UnRegisterInput failed: actionName or action is null.");
             return;
         }
-        if (!m_actions.TryGetValue(actionName, out List<InputEventObject> queue))
+        if (!m_actions.TryGetValue(actionName, out List<InputFuncData> queue))
         {
             Debug.LogWarning($"UnRegisterInput failed: actionName {actionName} not found.");
             return;
@@ -206,7 +206,7 @@ public class InputManager : MonoBehaviour
             }
         }
     }
-    void HandleInputEvent(List<InputEventObject> argsList, InputActionArgs lastArgs)
+    void HandleInputEvent(List<InputFuncData> argsList, InputActionArgs lastArgs)
     {
         if (argsList == null || argsList.Count == 0)
             return;

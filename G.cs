@@ -5,6 +5,8 @@ using System.Reflection;
 using UnityEngine.Events;
 using System;
 using UnityEngine.InputSystem;
+using EventFramework;
+
 
 public enum LocalizationLanguage
 {
@@ -86,73 +88,38 @@ public sealed class G
     public static readonly G Instance = new G();
 
 
-    public static EventObject.IEventProxy GetEventProxy<O>(O obj, bool ensureInit = false) where O : class
-    {
-        Type type = typeof(O);
-        var attr = type.GetCustomAttribute<EventObject.EventObjectAttribute>();
-        if (attr == null)
-        {
-            Debug.LogWarning($"Event Failed because the class of {type.FullName} dont has attribute EventObject.EventObjectAttribute");
-            return null;
-        }
-        var field = attr.proxyName == null ? null : type.GetField(attr.proxyName, BindingFlags.Instance | BindingFlags.FlattenHierarchy);
-        if (field == null || !field.FieldType.IsAssignableFrom(typeof(EventObject.IEventProxy)))
-        {
-            Debug.LogWarning($"Event Failed because the class of {type.FullName} dont has protect/public field {attr.proxyName}");
-            return null;
-        }
-        EventObject.IEventProxy proxy = (EventObject.IEventProxy)field.GetValue(obj);
-        if (proxy == null)
-        {
-            if (!ensureInit)
-            {
-                return null;
-            }
-            else
-            {
-                proxy = new EventObject.EventProxy();
-                field.SetValue(obj, proxy);
-            }
-        }
-        return proxy;
-    }
-
-    public static EventObject.IEventProxy GetEventProxy(EventObject.IEventProxy obj, bool ensureInit = false)
-    {
-        return obj;
-    }
 
     public static void RegisterEvent<O>(O obj, string eventName, Action func) where O : class
-        => GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
+        => EOHelper.GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
     public static void RegisterEvent<O, T>(O obj, string eventName, Action<T> func) where O : class
-        => GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
+        => EOHelper.GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
     public static void RegisterEvent<O, T1, T2>(O obj, string eventName, Action<T1, T2> func) where O : class
-        => GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
+        => EOHelper.GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
     public static void RegisterEvent<O, T1, T2, T3>(O obj, string eventName, Action<T1, T2, T3> func) where O : class
-        => GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
+        => EOHelper.GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
     public static void RegisterProp<O>(O obj, string eventName, Action func) where O : class
-        => GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
+        => EOHelper.GetEventProxy(obj, ensureInit: true)?.RegisterEvent(eventName, func);
 
 
 
     public static void UnRegisterEvent<O>(O obj, string eventName, Action func) where O : class
-        => GetEventProxy(obj, ensureInit: false)?.UnRegisterEvent(eventName, func);
+        => EOHelper.GetEventProxy(obj, ensureInit: false)?.UnRegisterEvent(eventName, func);
     public static void UnRegisterEvent<O, T>(O obj, string eventName, Action<T> func) where O : class
-        => GetEventProxy(obj, ensureInit: false)?.UnRegisterEvent(eventName, func);
+        => EOHelper.GetEventProxy(obj, ensureInit: false)?.UnRegisterEvent(eventName, func);
     public static void UnRegisterEvent<O, T1, T2>(O obj, string eventName, Action<T1, T2> func) where O : class
-        => GetEventProxy(obj, ensureInit: false)?.UnRegisterEvent(eventName, func);
+        => EOHelper.GetEventProxy(obj, ensureInit: false)?.UnRegisterEvent(eventName, func);
     public static void UnRegisterEvent<O, T1, T2, T3>(O obj, string eventName, Action<T1, T2, T3> func) where O : class
-        => GetEventProxy(obj, ensureInit: false)?.UnRegisterEvent(eventName, func);
+        => EOHelper.GetEventProxy(obj, ensureInit: false)?.UnRegisterEvent(eventName, func);
 
 
     public static void InVokeEvent<O>(O obj, string eventName) where O : class
-        => GetEventProxy(obj, ensureInit: false)?.InVokeEvent(eventName);
+        => EOHelper.GetEventProxy(obj, ensureInit: false)?.InVokeEvent(eventName);
     public static void InVokeEvent<O, T>(O obj, string eventName, T data) where O : class
-        => GetEventProxy(obj, ensureInit: false)?.InVokeEvent(eventName, data);
+        => EOHelper.GetEventProxy(obj, ensureInit: false)?.InVokeEvent(eventName, data);
     public static void InVokeEvent<O, T1, T2>(O obj, string eventName, T1 data, T2 data2) where O : class
-        => GetEventProxy(obj, ensureInit: false)?.InVokeEvent(eventName, data, data2);
+        => EOHelper.GetEventProxy(obj, ensureInit: false)?.InVokeEvent(eventName, data, data2);
     public static void InVokeEvent<O, T1, T2, T3>(O obj, string eventName, T1 data, T2 data2, T3 data3) where O : class
-        => GetEventProxy(obj, ensureInit: false)?.InVokeEvent(eventName, data, data2, data3);
+        => EOHelper.GetEventProxy(obj, ensureInit: false)?.InVokeEvent(eventName, data, data2, data3);
 
     public static uint RegisterTimer(float time, Action action, TimerUpdateMode mode = TimerUpdateMode.Update, int repeateCount = 1)
     {

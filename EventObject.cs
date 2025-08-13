@@ -3,13 +3,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 #if EVENT_OBJ_IN_UNITY_PROJECT
 using UnityEngine;
 #endif
 
 
 
-namespace EventObject
+namespace EventFramework
 {
     public static class EOHelper
     {
@@ -21,6 +22,48 @@ namespace EventObject
             Console.Error.WriteLine(message);
 #endif
         }
+
+        public static IEventProxy GetEventProxy<O>(O obj, bool ensureInit = false) where O : class
+        {
+            Type type = typeof(O);
+            var attr = type.GetCustomAttribute<EventProxyAttribute>();
+            if (attr == null)
+            {
+#if EVENT_OBJ_IN_UNITY_PROJECT
+                Debug.LogWarning($"Event Failed because the class of {type.FullName} dont has attribute EventProxyAttribute");
+#endif
+                return null;
+            }
+            var field = attr.proxyName == null ? null : type.GetField(attr.proxyName, BindingFlags.Instance | BindingFlags.FlattenHierarchy);
+            if (field == null || !field.FieldType.IsAssignableFrom(typeof(IEventProxy)))
+            {
+#if EVENT_OBJ_IN_UNITY_PROJECT
+                Debug.LogWarning($"Event Failed because the class of {type.FullName} dont has protect/public field {attr.proxyName}");
+#endif
+                return null;
+            }
+            IEventProxy proxy = (IEventProxy)field.GetValue(obj);
+            if (proxy == null)
+            {
+                if (!ensureInit)
+                {
+                    return null;
+                }
+                else
+                {
+                    proxy = new EventProxy();
+                    field.SetValue(obj, proxy);
+                }
+            }
+            return proxy;
+        }
+
+        public static IEventProxy GetEventProxy(IEventProxy obj, bool ensureInit = false)
+        {
+            return obj;
+        }
+
+
     }
     public class EventProxy : IEventProxy
     {

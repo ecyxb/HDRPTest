@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using EventObject;
+using EventFramework;
 using System;
 using UnityEngine.InputSystem.Interactions;
 using DG.Tweening;
