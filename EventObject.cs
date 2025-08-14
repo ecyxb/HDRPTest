@@ -173,8 +173,6 @@ namespace EventFramework
         public const byte IS_FLOAT = 0b010;
         public const byte IS_2D = 0b100;
 
-
-        public static readonly long negS = 1 << 63;
         public long data;
         public byte type;
 

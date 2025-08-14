@@ -50,7 +50,7 @@ public class SelectTakePhotoParamsUI : UICommon
         base.Register();
         if (G.InputMgr)
         {
-            G.InputMgr.RegisterInput("MainTab", InputEventType.Deactivated, OnReactEClick, gameObject);
+            G.InputMgr.RegisterInput("MainTab", InputEventType.Clicked, OnReactEClick, gameObject);
         }
         if (G.player)
         {

@@ -19,8 +19,6 @@ public enum InputEventType
 
     Deactivated = Canceled | Ended,
     Actived = Started | Performed,
-
-    ALL = Started | Performed | Canceled | Ended,
 }
 
 public class InputActionArgs
@@ -54,7 +52,7 @@ public class InputActionArgs
 
 public class InputFuncData
 {
-    public bool actived;
+    public bool actived; //标志
     public bool startListend;
     public Func<InputActionArgs, bool> cb;
     public GameObject responseObject;
@@ -73,6 +71,7 @@ public class InputFuncData
         {
             return false;
         }
+        //End事件
         if (args.eventType == InputEventType.Ended || !responseObject.activeInHierarchy || (responseFunc != null && !responseFunc.Invoke()))
         {
             // 事件已经在外围被吞掉而停止了。
@@ -81,12 +80,11 @@ public class InputFuncData
         }
         
         bool listenClick = listenType.HasFlag(InputEventType.Clicked);
-        bool isClicked = args.eventType == InputEventType.Canceled && startListend; //判断这次会不会触发click
         bool swallow = false;
-
+        bool isClicked = args.eventType == InputEventType.Canceled && startListend; //判断这次会不会触发click
         // 必须要接收started, performed则保持，cancel和ended则取消
         startListend = listenClick && (args.eventType == InputEventType.Started || (startListend && args.eventType == InputEventType.Performed));
-        
+
         // 基础事件类型
         if (listenType.HasFlag(args.eventType))
         {
@@ -94,7 +92,9 @@ public class InputFuncData
             swallow = cb.Invoke(args);
             actived = args.eventType != InputEventType.Canceled;
         }
-        // 特殊事件类型，每个按钮自己处理
+        isClicked = isClicked && !swallow; // 如果swallow了这次cancel，则不再触发click事件
+        
+        // 普通事件类型，每个按钮自己处理
         if (isClicked && listenClick)
         {
             var tempArgs = new InputActionArgs
@@ -103,8 +103,9 @@ public class InputFuncData
                 eventType = InputEventType.Clicked,
                 name = args.name
             };
-            cb.Invoke(tempArgs);
+            swallow = cb.Invoke(tempArgs);
         }
+
         return swallow;
     }
     public void Deactive(string name)

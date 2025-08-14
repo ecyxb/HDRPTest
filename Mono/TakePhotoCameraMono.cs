@@ -211,7 +211,8 @@ public class TakePhotoCameraMono : MonoBehaviour
         cameraComputeShader.SetBuffer(m_kernelHandle, "HistogramBuffer", m_histogramBuffer);
         cameraComputeShader.SetTexture(m_kernelHandle, "InputTexture", nonCompensationRT);
         _photoCalculator.PrepareAllShaderData(cameraComputeShader);
-        calcBrightnessTimer = G.RegisterTimer(checkDtTime, StartCalcBrightnessSync, repeateCount: -1);
+        // calcBrightnessTimer = G.RegisterTimer(checkDtTime, StartCalcBrightnessSync, repeateCount: -1);
+        calcBrightnessTimer = G.RegisterTimer(checkDtTime, StartCalcBrightness, repeateCount: -1);
         if (G.player != null)
         {
             var takePhotoCameraComp = G.player.takePhotoCameraComp;
@@ -261,7 +262,7 @@ public class TakePhotoCameraMono : MonoBehaviour
     }
     void Update()
     {
-        // CalcBrightness();
+        CalcBrightness();
         // ContrastFocus();
     }
     public void ContrastFocus()
@@ -370,7 +371,7 @@ public class TakePhotoCameraMono : MonoBehaviour
             G.player.takePhotoCameraComp.ChangedRealWantBaseEV100(diffEV);
         }
 
-        float laplacian = G.player.takePhotoCameraComp.CalcLaplacian();
+        // float laplacian = G.player.takePhotoCameraComp.CalcLaplacian();
         // Debug.Log($"Laplacian: {laplacian}");
 
         // Debug.Log($"Average Brightness: {averageBrightness}, Diff EV: {diffEV}");
@@ -403,38 +404,38 @@ public class TakePhotoCameraMono : MonoBehaviour
         m_readbackRequests.Add(AsyncGPUReadback.Request(m_histogramBuffer));
     }
 
-    public void StartCalcBrightnessSync()
-    {
-        if (m_readbackRequests.Count > 0)
-        {
-            return;
-        }
-        if (_photoCalculator == null)
-        {
-            return;
-        }
+    // public void StartCalcBrightnessSync()
+    // {
+    //     if (m_readbackRequests.Count > 0)
+    //     {
+    //         return;
+    //     }
+    //     if (_photoCalculator == null)
+    //     {
+    //         return;
+    //     }
 
-        G.player.takePhotoCameraComp.GetComputeCameraParams(out float shutterSpeed, out float aperture, out int iso);
-        computeCamera.shutterSpeed = shutterSpeed;
-        computeCamera.aperture = aperture;
-        computeCamera.iso = iso;
-        computeCamera.Render();
-        cameraComputeShader.Dispatch(m_kernelHandle, _photoCalculator.GroupSize.x, _photoCalculator.GroupSize.y, 1);
+    //     G.player.takePhotoCameraComp.GetComputeCameraParams(out float shutterSpeed, out float aperture, out int iso);
+    //     computeCamera.shutterSpeed = shutterSpeed;
+    //     computeCamera.aperture = aperture;
+    //     computeCamera.iso = iso;
+    //     computeCamera.Render();
+    //     cameraComputeShader.Dispatch(m_kernelHandle, _photoCalculator.GroupSize.x, _photoCalculator.GroupSize.y, 1);
 
-        m_computeBrightBuffer.GetData(_photoCalculator.BrightData);
-        m_laplacianBuffer.GetData(_photoCalculator.LaplacianData);
-        m_histogramBuffer.GetData(_photoCalculator.HistogramData);
+    //     m_computeBrightBuffer.GetData(_photoCalculator.BrightData);
+    //     m_laplacianBuffer.GetData(_photoCalculator.LaplacianData);
+    //     m_histogramBuffer.GetData(_photoCalculator.HistogramData);
 
-        float averageBrightness = G.player.takePhotoCameraComp.CalcBrightness();
-        // Debug.Log($"Average Brightness: {averageBrightness}");
-        float diffEV = (Const.PhotoConst.TaregetBrightness - averageBrightness) / Const.PhotoConst.EVToBrightness;
-        if (MathF.Abs(diffEV) > 0.33f / 2)
-        {
-            G.player.takePhotoCameraComp.ChangedRealWantBaseEV100(diffEV);
-        }
+    //     float averageBrightness = G.player.takePhotoCameraComp.CalcBrightness();
+    //     // Debug.Log($"Average Brightness: {averageBrightness}");
+    //     float diffEV = (Const.PhotoConst.TaregetBrightness - averageBrightness) / Const.PhotoConst.EVToBrightness;
+    //     if (MathF.Abs(diffEV) > 0.33f / 2)
+    //     {
+    //         G.player.takePhotoCameraComp.ChangedRealWantBaseEV100(diffEV);
+    //     }
 
-        // float laplacian = G.player.takePhotoCameraComp.CalcLaplacian();
-    }
+    //     // float laplacian = G.player.takePhotoCameraComp.CalcLaplacian();
+    // }
 
     public void OnFocalLengthChanged(float oldValue, float newValue)
     {
