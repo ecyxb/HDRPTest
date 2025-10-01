@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using EventObject;
+using EventFramework;
 using Unity.VisualScripting;
 using UnityEngine.InputSystem;
 
@@ -47,10 +47,10 @@ public class PlayerMovementComp : EventCompBase
     public override void CompStart()
     {
         base.CompStart();
-        G.InputMgr.RegisterInput("Move", InputEventType.Performed | InputEventType.Canceled | InputEventType.Started | InputEventType.SWALLOW_ALL, OnMove, m_player.gameObject);
-        G.InputMgr.RegisterInput("Sprint", InputEventType.Canceled | InputEventType.Started | InputEventType.SWALLOW_ALL, OnSprint, m_player.gameObject);
-        G.InputMgr.RegisterInput("Look", InputEventType.Performed | InputEventType.Canceled | InputEventType.Started | InputEventType.SWALLOW_ALL, OnLook, m_player.gameObject);
-        G.InputMgr.RegisterInput("Jump", InputEventType.Started | InputEventType.SWALLOW_ALL, OnJump, m_player.gameObject);
+        G.InputMgr.RegisterInput("Move", InputEventType.Actived | InputEventType.Deactivated, OnMove, m_player.gameObject);
+        G.InputMgr.RegisterInput("Sprint", InputEventType.Deactivated | InputEventType.Started, OnSprint, m_player.gameObject);
+        G.InputMgr.RegisterInput("Look", InputEventType.Actived | InputEventType.Deactivated, OnLook, m_player.gameObject);
+        G.InputMgr.RegisterInput("Jump", InputEventType.Started, OnJump, m_player.gameObject);
 
     }
 
@@ -271,11 +271,11 @@ public class PlayerMovementComp : EventCompBase
         m_MoveData[2] = Vector3.zero;
     }
 
-    private bool OnMove(InputAction.CallbackContext context)
+    private bool OnMove(InputActionArgs args)
     {
-        if (context.phase == InputActionPhase.Performed || context.phase == InputActionPhase.Started)
+        if (args.eventType == InputEventType.Performed || args.eventType == InputEventType.Started)
         {
-            var value = context.ReadValue<Vector2>();
+            var value = args.ReadValue<Vector2>();
             SetMoveVector(value);
         }
         else
@@ -284,24 +284,24 @@ public class PlayerMovementComp : EventCompBase
         }
         return true;
     }
-    
-    private bool OnSprint(InputAction.CallbackContext context)
+
+    private bool OnSprint(InputActionArgs args)
     {
-        if (context.phase == InputActionPhase.Started)
+        if (args.eventType == InputEventType.Started)
         {
             m_player.stateComp.AddState(Const.StateConst.SPRINT);
         }
-        else if (context.phase == InputActionPhase.Canceled)
+        else if (args.eventType == InputEventType.Canceled)
         {
             m_player.stateComp.RemoveState(Const.StateConst.SPRINT);
         }
         return true;
     }
-    private bool OnLook(InputAction.CallbackContext context)
+    private bool OnLook(InputActionArgs args)
     {
-        if (context.phase == InputActionPhase.Performed || context.phase == InputActionPhase.Started)
+        if (args.eventType == InputEventType.Performed || args.eventType == InputEventType.Started)
         {
-            var value = context.ReadValue<Vector2>();
+            var value = args.ReadValue<Vector2>();
             m_lookVector = value;
         }
         else
@@ -310,9 +310,9 @@ public class PlayerMovementComp : EventCompBase
         }
         return true;
     }
-    private bool OnJump(InputAction.CallbackContext context)
+    private bool OnJump(InputActionArgs args)
     {
-        if (context.phase == InputActionPhase.Started)
+        if (args.eventType == InputEventType.Started)
         {
             m_jumpInput = true;
         }

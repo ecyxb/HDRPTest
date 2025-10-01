@@ -4,12 +4,7 @@ using UnityEngine.UI;
 
 public class AutoFocusAreaImage : UICommon
 {
-    // Start is called before the first frame update
-    public Sprite middleSprite;
-    public Sprite spotSprite;
-    public Sprite fullSprite;
-    public RectTransform imageTransform;
-
+    private RectTransform imageTransform => transform.Find("TargetImage") as RectTransform;
     private Const.AutoFocusArea currentMode = Const.AutoFocusArea.SPOT;
     protected override void OnLoad()
     {
@@ -18,7 +13,7 @@ public class AutoFocusAreaImage : UICommon
     }
     public void SetBgVisibility(bool isVisible)
     {
-        GetComponent<Image>().enabled = isVisible;
+        gameObject.GetComponent<Image>().enabled = isVisible;
     }
     public void SetSelected(bool isSelected)
     {
@@ -45,11 +40,11 @@ public class AutoFocusAreaImage : UICommon
         switch (mode)
         {
             case Const.AutoFocusArea.MIDDLE:
-                return middleSprite;
+                return G.LoadSprite("img/autoFocusAreaMode", 1);
             case Const.AutoFocusArea.SPOT:
-                return spotSprite;
+                return G.LoadSprite("img/autoFocusAreaMode", 3);
             case Const.AutoFocusArea.FULL:
-                return fullSprite;
+                return G.LoadSprite("img/autoFocusAreaMode", 0);
             default:
                 Debug.LogError($"Unknown Light Metering Mode: {mode}");
                 return null;

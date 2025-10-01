@@ -2,7 +2,7 @@
 using System;
 using UnityEngine;
 
-namespace EventObject
+namespace EventFramework
 {
     public interface IEventProxy
     {
@@ -32,10 +32,10 @@ namespace EventObject
     }
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
-    public class EventObjectAttribute : Attribute
+    public class EventProxyAttribute : Attribute
     {
         public string proxyName { get; private set; }
-        public EventObjectAttribute(string proxyName)
+        public EventProxyAttribute(string proxyName)
         {
             if (string.IsNullOrWhiteSpace(proxyName))
             {

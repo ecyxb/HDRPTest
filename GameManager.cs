@@ -1,6 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
-using EventObject;
+using EventFramework;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -45,7 +45,7 @@ public class GameManager : MonoBehaviour
                 if (volume.name == name)
                 {
                     volume.enabled = true;
-                    cameraData.volumeLayerMask |= (1 << volume.gameObject.layer);
+                    cameraData.volumeLayerMask |= 1 << volume.gameObject.layer;
                 }
             }
         }

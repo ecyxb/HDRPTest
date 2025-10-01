@@ -1,7 +1,7 @@
 
 using System.Collections.Generic;
 using UnityEngine;
-using EventObject;
+using EventFramework;
 using CData;
 
 public class StateComp : EventCompBase

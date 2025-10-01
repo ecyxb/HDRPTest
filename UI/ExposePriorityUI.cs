@@ -7,11 +7,8 @@ using DG.Tweening;
 
 public class ExposePriorityUI : UICommon
 {
-    [SerializeField]
-    private TextMeshProUGUI text;
-    [SerializeField]
-    private Image bg;
-
+    private TextMeshProUGUI text => gameObject.GetComponentInChildren<TextMeshProUGUI>();
+    private Image bg => gameObject.GetComponent<Image>();
     private Tweener bgTween;
     // Start is called before the first frame update
 

@@ -5,11 +5,7 @@ using UnityEngine.UI;
 public class LightMeteringModeImage : UICommon
 {
     // Start is called before the first frame update
-    public Sprite centerWeightedSprite;
-    public Sprite spotSprite;
-    public Sprite matrixSprite;
-    public Sprite averageSprite;
-    public RectTransform imageTransform;
+    private RectTransform imageTransform => transform.Find("TargetImage") as RectTransform;
 
     private LightMeteringMode currentMode = LightMeteringMode.CenterWeighted;
     protected override void OnLoad()
@@ -19,7 +15,7 @@ public class LightMeteringModeImage : UICommon
     }
     public void SetBgVisibility(bool isVisible)
     {
-        GetComponent<Image>().enabled = isVisible;
+        gameObject.GetComponent<Image>().enabled = isVisible;
     }
     public void SetSelected(bool isSelected)
     {
@@ -46,13 +42,13 @@ public class LightMeteringModeImage : UICommon
         switch (mode)
         {
             case LightMeteringMode.CenterWeighted:
-                return centerWeightedSprite;
+                return G.LoadSprite("img/lightMeteringMode", 3);
             case LightMeteringMode.Spot:
-                return spotSprite;
+                return G.LoadSprite("img/lightMeteringMode", 1);
             case LightMeteringMode.Matrix:
-                return matrixSprite;
+                return G.LoadSprite("img/lightMeteringMode", 0);
             case LightMeteringMode.Average:
-                return averageSprite;
+                return G.LoadSprite("img/lightMeteringMode", 2);
             default:
                 Debug.LogError($"Unknown Light Metering Mode: {mode}");
                 return null;

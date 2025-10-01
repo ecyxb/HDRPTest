@@ -9,7 +9,7 @@ using UnityEngine.UI;
 
 public class PanelTakePhotoMain : PanelBase
 {
-    protected static new Dictionary<string, string> __shortcuts__ = null;
+    protected static new Dictionary<string, string> __shortcuts__ = new Dictionary<string, string>();
     protected override Dictionary<string, string> ShortCutsCache => __shortcuts__;
     protected override string[] SHORTCUT_OBJECTS => new string[]
     {
@@ -19,78 +19,74 @@ public class PanelTakePhotoMain : PanelBase
         "PanelExposePriorityAP",
         "NormalItems",
         "FocusPositionAP",
+        "PanelShutter",
+        "TextShutter",
+        "TextShutterNum",
+        "PanelAperture",
+        "TextAperture",
+        "TextApertureNum",
+        "PanelIso",
+        "TextIsoLTDoc",
+        "TextIsoNum",
+        "ImageExposeCompensation",
+        "TextExposeCompensation",
     };
-
-    [Space(10)]
-    public Image shutterPanelOutline;
-    public TextMeshProUGUI shutterLTText;
-    public TextMeshProUGUI shutterSpeedText;
-
-    [Space(10)]
-    public Image aperturePanelOutline;
-    public TextMeshProUGUI apertureLBText;
-    public TextMeshProUGUI apertureText;
-
-    [Space(10)]
-    public Image isoPanelOutline;
-    public TextMeshProUGUI isoLTDocuText; //左上角标注是iso的文字
-    public TextMeshProUGUI isoText;
-    // public TextMeshPro
-
-    [Space(10)]
-    public Image exposureCompensationImage;
-    public TextMeshProUGUI exposureCompensationText;
+    private TextMeshProUGUI shutterSpeedText => this["TextShutterNum"].GetComponent<TextMeshProUGUI>();
+    private TextMeshProUGUI apertureText => this["TextApertureNum"].GetComponent<TextMeshProUGUI>();
+    private TextMeshProUGUI isoLTDocuText => this["TextIsoLTDoc"].GetComponent<TextMeshProUGUI>(); //左上角标注是iso的文字
+    private TextMeshProUGUI isoText => this["TextIsoNum"].GetComponent<TextMeshProUGUI>();
+    private Image exposureCompensationImage => this["ImageExposeCompensation"].GetComponent<Image>();
+    private TextMeshProUGUI exposureCompensationText => this["TextExposeCompensation"].GetComponent<TextMeshProUGUI>();
     private RectTransform exposeCompensationAP => this["PanelExposeCompensationAP"];
 
 
-    private TextMeshProUGUI[] hightLightTexts;
-    private Image[] hightLightImages;
+    private TextMeshProUGUI[] hightLightTexts = new TextMeshProUGUI[0];
+    private Image[] hightLightImages = new Image[0];
 
-    private int exposureOperation = 0;
+    private bool[] exposureOperationState =  new bool[2] { false, false }; // 0: E, 1: Q
+    private int exposureOperation => (exposureOperationState[0] ? 1 : 0) + (exposureOperationState[1] ? -1 : 0); // E: +1, Q: -1
 
     // 长按调整曝光按钮时连续修改的定时器
     private uint exposureOpTimer = 0;
-    private SelectTakePhotoParamsUI selectTakePhotoParamsUI;
+    
 
     // 当曝光需要的参数超出可以设置的范围时，闪烁
     private uint blinkTargetOutRangeSettingsTimer = 0;
 
-    private FocusPositionUI focusPositionUI;
+    // 绑定的item
+    private FocusPositionUI focusPositionUI = null;
+    private SelectTakePhotoParamsUI selectTakePhotoParamsUI = null;
+    private ExposureCompensationRule exposureCompensationRule = null;
+    private LightMeteringModeImage currentLightMeteringModeImage = null;
+    private ExposePriorityUI exposePriorityUI = null;
 
     protected override void OnLoad()
     {
-        AttachUI<ExposureCompensationRule>("ExposureCompensationRule", "PanelExposeCompensationAP", AspectRatioFitter.AspectMode.FitInParent);
-        AttachUI<LightMeteringModeImage>("LightMeteringModeImage", "CurrentLightMeteringModeImageAP", AspectRatioFitter.AspectMode.FitInParent);
-        AttachUI<ExposePriorityUI>("ExposePriorityUI", "PanelExposePriorityAP", AspectRatioFitter.AspectMode.FitInParent);
-        AttachUI<FocusPositionUI>("FocusPositionUI", "FocusPositionAP", AspectRatioFitter.AspectMode.None);
-
+        exposureCompensationRule = AttachUI<ExposureCompensationRule>("ExposureCompensationRule", "PanelExposeCompensationAP", AspectRatioFitter.AspectMode.FitInParent);
+        currentLightMeteringModeImage = AttachUI<LightMeteringModeImage>("LightMeteringModeImage", "CurrentLightMeteringModeImageAP", AspectRatioFitter.AspectMode.FitInParent);
+        exposePriorityUI = AttachUI<ExposePriorityUI>("ExposePriorityUI", "PanelExposePriorityAP", AspectRatioFitter.AspectMode.FitInParent);
+        focusPositionUI = AttachUI<FocusPositionUI>("FocusPositionUI", "FocusPositionAP", AspectRatioFitter.AspectMode.None);
         selectTakePhotoParamsUI = AttachUI<SelectTakePhotoParamsUI>("SelectTakePhotoParamsUI", "SelectTakePhotoParamsAP", AspectRatioFitter.AspectMode.FitInParent);
+
         selectTakePhotoParamsUI.ShowSettingSelect(SettingParamType.AutoFocusArea);
         selectTakePhotoParamsUI.Hide();
 
-        LightMeteringModeImage currentLightMeteringModeImage = GetUICommon<LightMeteringModeImage>("LightMeteringModeImage");
         currentLightMeteringModeImage.SetBgVisibility(true);
         currentLightMeteringModeImage.SetLightMeteringMode(G.player.takePhotoCameraComp.MeteringMode);
 
-        this.focusPositionUI = GetUICommon<FocusPositionUI>("FocusPositionUI");
-        InitializeFocusPositionUI();
-        
-
-
-        hightLightTexts = new TextMeshProUGUI[0];
-        hightLightImages = new Image[0];
-        var comp = G.player.takePhotoCameraComp;
         if (!G.player)
         {
             return;
         }
+        UpdateFocusPositionUI(true);
         UpdateShutterSpeedText();
         UpdateExposurePriority(anim: false);
         UpdateExposureControlType(anim: false);
         UpdateExposureCompensationPara(anim: false);
-        apertureText.text = comp.Aperture.ToString();
-        isoText.text = comp.ISO.ToString();
+        UpdateApertureText();
+        UpdateISOText();
 
+        var comp = G.player.takePhotoCameraComp;
         comp.RegisterProp("apertureIdx", (Action<int, int>)OnApertureIdxChanged);
         comp.RegisterProp("shutterSpeedIdx", (Action<int, int>)OnShutterSpeedIdxChanged);
         comp.RegisterProp("isoIdx", (Action<int, int>)OnISOIdxChanged);
@@ -101,12 +97,17 @@ public class PanelTakePhotoMain : PanelBase
         comp.RegisterProp("targetOutRangeSettings", (Action<int, int>)OnTargetOutRangeSettingsChanged);
         comp.RegisterProp("focusIdxCenterOffset", (Action<Vector2Int, Vector2Int>)OnFocusIdxCenterOffsetChanged);
         comp.RegisterProp("autoFocusArea", (Action<int, int>)OnAutoFocusAreaChanged);
-        
-        comp.ClampBlockIdx_Center += focusPositionUI.ClampBlockIdx_Center;
 
-        }
+        comp.ClampBlockIdx_Center += focusPositionUI.ClampBlockIdx_Center;
+        G.UI.RegisterLateUpdate(LateUpdate);
+
+    }
     protected override void OnUnload()
     {
+        if (G.UI)
+        {
+            G.UI.UnregisterLateUpdate(LateUpdate);
+        }
         if (G.player)
         {
             var takePhotoCameraComp = G.player.takePhotoCameraComp;
@@ -120,9 +121,7 @@ public class PanelTakePhotoMain : PanelBase
             takePhotoCameraComp.UnRegisterProp("targetOutRangeSettings", (Action<int, int>)OnTargetOutRangeSettingsChanged);
             takePhotoCameraComp.UnRegisterProp("focusIdxCenterOffset", (Action<Vector2Int, Vector2Int>)OnFocusIdxCenterOffsetChanged);
             takePhotoCameraComp.UnRegisterProp("autoFocusArea", (Action<int, int>)OnAutoFocusAreaChanged);
-            focusPositionUI = GetUICommon<FocusPositionUI>("FocusPositionUI");
             takePhotoCameraComp.ClampBlockIdx_Center -= focusPositionUI.ClampBlockIdx_Center;
-
         }
         if (exposureOpTimer != 0)
         {
@@ -142,15 +141,16 @@ public class PanelTakePhotoMain : PanelBase
         base.Register();
         if (G.InputMgr)
         {
-            G.InputMgr.RegisterInput("REACT_E", InputEventType.Canceled | InputEventType.Started | InputEventType.SWALLOW_ALL, OnExposureChange, gameObject, CheckBaseInputValid);
-            G.InputMgr.RegisterInput("REACT_Q", InputEventType.Canceled | InputEventType.Started | InputEventType.SWALLOW_ALL, OnExposureChange, gameObject, CheckBaseInputValid);
-            G.InputMgr.RegisterInput("EVPriority", InputEventType.Canceled | InputEventType.SWALLOW_ALL, OnExposurePriority, gameObject, CheckBaseInputValid);
-            G.InputMgr.RegisterInput("MainTab", InputEventType.Canceled | InputEventType.SWALLOW_ALL, OnExposureControlType, gameObject, CheckBaseInputValid);
-            G.InputMgr.RegisterInput("SecondMenu", InputEventType.Canceled | InputEventType.SWALLOW_ALL, OnOpenSecondMenu, gameObject);
-            G.InputMgr.RegisterInput("UIMoveX", InputEventType.Started | InputEventType.SWALLOW_ALL, OnUIMoveX, gameObject);
-            G.InputMgr.RegisterInput("UIMoveY", InputEventType.Started | InputEventType.SWALLOW_ALL, OnUIMoveY, gameObject);
-            G.InputMgr.RegisterInput("RightMouseClick", InputEventType.Started | InputEventType.Canceled, OnRightMouseClick, gameObject);
+            G.InputMgr.RegisterInput("REACT_E", InputEventType.Deactivated | InputEventType.Started, OnExposureChangeE, gameObject, CheckBaseInputValid);
+            G.InputMgr.RegisterInput("REACT_Q", InputEventType.Deactivated | InputEventType.Started, OnExposureChangeQ, gameObject, CheckBaseInputValid);
+            G.InputMgr.RegisterInput("EVPriority", InputEventType.Deactivated, OnExposurePriority, gameObject, CheckBaseInputValid);
+            G.InputMgr.RegisterInput("MainTab", InputEventType.Deactivated, OnExposureControlType, gameObject, CheckBaseInputValid);
+            G.InputMgr.RegisterInput("SecondMenu", InputEventType.Deactivated, OnOpenSecondMenu, gameObject);
+            G.InputMgr.RegisterInput("UIMoveX", InputEventType.Started, OnUIMoveX, gameObject);
+            G.InputMgr.RegisterInput("UIMoveY", InputEventType.Started, OnUIMoveY, gameObject);
+            G.InputMgr.RegisterInput("RightMouseClick", InputEventType.Started | InputEventType.Deactivated, OnRightMouseClick, gameObject);
             G.InputMgr.RegisterInput("MouseScroll", InputEventType.Performed, OnMouseScroll, gameObject);
+            G.InputMgr.RegisterInput("Attack", InputEventType.Started, OnAttack, gameObject);
         }
     }
 
@@ -159,8 +159,8 @@ public class PanelTakePhotoMain : PanelBase
         base.UnRegister();
         if (G.InputMgr)
         {
-            G.InputMgr.UnRegisterInput("REACT_E", OnExposureChange);
-            G.InputMgr.UnRegisterInput("REACT_Q", OnExposureChange);
+            G.InputMgr.UnRegisterInput("REACT_E", OnExposureChangeE);
+            G.InputMgr.UnRegisterInput("REACT_Q", OnExposureChangeQ);
             G.InputMgr.UnRegisterInput("EVPriority", OnExposurePriority);
             G.InputMgr.UnRegisterInput("MainTab", OnExposureControlType);
             G.InputMgr.UnRegisterInput("SecondMenu", OnOpenSecondMenu);
@@ -168,11 +168,12 @@ public class PanelTakePhotoMain : PanelBase
             G.InputMgr.UnRegisterInput("UIMoveY", OnUIMoveY);
             G.InputMgr.UnRegisterInput("RightMouseClick", OnRightMouseClick);
             G.InputMgr.UnRegisterInput("MouseScroll", OnMouseScroll);
+            G.InputMgr.UnRegisterInput("Attack", OnAttack);
         }
     }
 
 
-    void LateUpdate()
+    void LateUpdate(float dt)
     {
         focusPositionUI.UpdateFocusTargetData();
         if (G.player.stateComp.HasState(Const.StateConst.FOCUS))
@@ -190,23 +191,19 @@ public class PanelTakePhotoMain : PanelBase
         }
         focusPositionUI.UpdateCircleFocusImage();
     }
-    // void LateUpdate()
-    // {
-
-    // }
+    
     private void UpdateExposurePriority(bool anim = false)
     {
         if (G.player)
         {
             var validTypes = Helpers.GetDefaultExposureControlType(G.player.takePhotoCameraComp.EVPriority);
-            shutterPanelOutline.enabled = Array.IndexOf(validTypes, ExposureControlType.ShutterSpeed) >= 0;
-            aperturePanelOutline.enabled = Array.IndexOf(validTypes, ExposureControlType.Aperture) >= 0;
+            this["PanelShutter"].GetComponent<Image>().enabled = Array.IndexOf(validTypes, ExposureControlType.ShutterSpeed) >= 0;
+            this["PanelAperture"].GetComponent<Image>().enabled = Array.IndexOf(validTypes, ExposureControlType.Aperture) >= 0;
 
-            var exposureUI = GetUICommon<ExposePriorityUI>("ExposePriorityUI");
-            exposureUI.SetExposurePriority(G.player.takePhotoCameraComp.EVPriority);
+            exposePriorityUI.SetExposurePriority(G.player.takePhotoCameraComp.EVPriority);
             if (anim)
             {
-                exposureUI.PlayBgTween();
+                exposePriorityUI.PlayBgTween();
             }
 
         }
@@ -234,7 +231,7 @@ public class PanelTakePhotoMain : PanelBase
                 isoText.gameObject.SetActive(false);
                 exposeCompensationAP.GetComponent<Image>().color = new Color(0, 0, 0, 235 / 255f);
                 exposeCompensationAP.GetComponent<Image>().enabled = true;
-                GetUICommon<ExposureCompensationRule>("ExposureCompensationRule").gameObject.SetActive(true);
+                exposureCompensationRule.gameObject.SetActive(true);
             }
             else
             {
@@ -245,19 +242,21 @@ public class PanelTakePhotoMain : PanelBase
                 var EVCompensationPara = G.player.takePhotoCameraComp.EVCompensationPara;
                 exposeCompensationAP.GetComponent<Image>().enabled = G.player.takePhotoCameraComp.EVCompensationPara != 0;
                 exposeCompensationAP.GetComponent<Image>().color = new Color(0, 0, 0, 0.5f);
-                GetUICommon<ExposureCompensationRule>("ExposureCompensationRule").gameObject.SetActive(EVCompensationPara != 0);
+                exposureCompensationRule.gameObject.SetActive(EVCompensationPara != 0);
             }
 
             switch (ctrlType)
             {
 
                 case ExposureControlType.ShutterSpeed:
+                    TextMeshProUGUI shutterLTText = this["TextShutter"].GetComponent<TextMeshProUGUI>();
                     shutterLTText.color = Const.ColorConst.highlightColorBg;
                     shutterSpeedText.color = Const.ColorConst.highlightColorBg;
                     hightLightTexts = new TextMeshProUGUI[] { shutterLTText, shutterSpeedText };
                     hightLightImages = new Image[] { };
                     break;
                 case ExposureControlType.Aperture:
+                    TextMeshProUGUI apertureLBText = this["TextAperture"].GetComponent<TextMeshProUGUI>();
                     apertureLBText.color = Const.ColorConst.highlightColorBg;
                     apertureText.color = Const.ColorConst.highlightColorBg;
                     hightLightTexts = new TextMeshProUGUI[] { apertureLBText, apertureText };
@@ -266,14 +265,12 @@ public class PanelTakePhotoMain : PanelBase
                 case ExposureControlType.ISO:
                     isoLTDocuText.color = Const.ColorConst.highlightColorBg;
                     isoText.color = Const.ColorConst.highlightColorBg;
-                    // isoPanelOutline.color = highlightColor;
                     hightLightTexts = new TextMeshProUGUI[] { isoLTDocuText, isoText };
                     hightLightImages = new Image[] { };
                     break;
                 case ExposureControlType.ExposureCompensation:
                     exposureCompensationText.color = Const.ColorConst.highlightColorBg;
                     exposureCompensationImage.color = Const.ColorConst.highlightColorBg;
-                    // isoPanelOutline.color = highlightColor;
                     hightLightTexts = new TextMeshProUGUI[] { exposureCompensationText };
                     hightLightImages = new Image[] { exposureCompensationImage };
                     break;
@@ -303,7 +300,7 @@ public class PanelTakePhotoMain : PanelBase
         {
             exposureCompensationText.text = exposureCompensation.ToString("F1");
         }
-        GetUICommon<ExposureCompensationRule>("ExposureCompensationRule").ShowEVCompensation(para);
+        exposureCompensationRule.ShowEVCompensation(para);
     }
 
     private void UpdateShutterSpeedText()
@@ -313,20 +310,26 @@ public class PanelTakePhotoMain : PanelBase
             shutterSpeedText.text = G.player.takePhotoCameraComp.ShutterSpeedInv.ToString();
         }
     }
-    private void InitializeFocusPositionUI()
+    private void UpdateFocusPositionUI(bool need_init = false)
     {
-        // 初始化对焦区域的大小和区块大小
-        G.player.takePhotoCameraComp.GetInitFocusData(out Vector2Int meteringSize, out Vector2Int blockPixelSize);
-        focusPositionUI.InitFocusData(meteringSize, blockPixelSize);
-        UpdateFocusPositionUI();
-    }
-    private void UpdateFocusPositionUI()
-    {
+        if (need_init)
+        {
+            // 初始化对焦区域的大小和区块大小
+            G.player.takePhotoCameraComp.GetInitFocusData(out Vector2Int meteringSize, out Vector2Int blockPixelSize);
+            focusPositionUI.InitFocusData(meteringSize, blockPixelSize);
+        }
         // 更新焦点的大小和位置
         G.player.takePhotoCameraComp.GetCurrentFocusData(out Vector2Int blockNumSize, out Vector2Int centerOffset);
         focusPositionUI.SetBlock_Center(blockNumSize, centerOffset);
     }
-
+    public void UpdateApertureText()
+    {
+        apertureText.text = G.player.takePhotoCameraComp.Aperture.ToString();
+    }
+    public void UpdateISOText()
+    {
+        isoText.text = G.player.takePhotoCameraComp.ISO.ToString();
+    }
     private void StartOffsetExposure(float time)
     {
         if (exposureOpTimer != 0)
@@ -359,11 +362,20 @@ public class PanelTakePhotoMain : PanelBase
     }
 
     #region input events
-    public bool OnMouseScroll(InputAction.CallbackContext context)
+    private bool OnAttack(InputActionArgs args)
     {
-        if (context.phase == InputActionPhase.Performed)
+        if (InputEventType.Started.HasFlag(args.eventType))
         {
-            var value = context.ReadValue<float>();
+            var panelCapture = G.UI.EnsurePanel<PanelCapture>("PanelCapture");
+            panelCapture?.ShowResult();
+        }
+        return true;
+    }
+    public bool OnMouseScroll(InputActionArgs args)
+    {
+        if (InputEventType.Performed.HasFlag(args.eventType))
+        {
+            var value = args.ReadValue<float>();
             if (value > 0)
             {
                 G.player.takePhotoCameraComp.UpdateFocalLength(1);
@@ -375,26 +387,19 @@ public class PanelTakePhotoMain : PanelBase
         }
         return true;
     }
-    public bool OnExposureChange(InputAction.CallbackContext context)
+    public bool OnExposureChangeE(InputActionArgs args)
     {
-        int op = 0;
-        if (context.action.name == "REACT_E")
-        {
-            op = 1;
-        }
-        else if (context.action.name == "REACT_Q")
-        {
-            op = -1;
-        }
-        if (context.phase == InputActionPhase.Canceled)
-        {
-            op = -op;
-        }
-        exposureOperation += op;
+        exposureOperationState[0] = InputEventType.Actived.HasFlag(args.eventType);
         StartOffsetExposure(0.1f);
         return true;
     }
-    private bool OnExposurePriority(InputAction.CallbackContext context)
+    public bool OnExposureChangeQ(InputActionArgs args)
+    {
+        exposureOperationState[1] = InputEventType.Actived.HasFlag(args.eventType);
+        StartOffsetExposure(0.1f);
+        return true;
+    }
+    private bool OnExposurePriority(InputActionArgs args)
     {
         if (G.player)
         {
@@ -402,7 +407,7 @@ public class PanelTakePhotoMain : PanelBase
         }
         return true;
     }
-    private bool OnExposureControlType(InputAction.CallbackContext context)
+    private bool OnExposureControlType(InputActionArgs args)
     {
         if (G.player)
         {
@@ -410,7 +415,7 @@ public class PanelTakePhotoMain : PanelBase
         }
         return true;
     }
-    private bool OnOpenSecondMenu(InputAction.CallbackContext context)
+    private bool OnOpenSecondMenu(InputActionArgs args)
     {
         if (selectTakePhotoParamsUI.gameObject.activeSelf)
         {
@@ -424,11 +429,11 @@ public class PanelTakePhotoMain : PanelBase
         }
         return true;
     }
-    private bool OnUIMoveX(InputAction.CallbackContext context)
+    private bool OnUIMoveX(InputActionArgs args)
     {
-        if (context.phase == InputActionPhase.Started)
+        if (InputEventType.Started.HasFlag(args.eventType))
         {
-            var value = context.ReadValue<float>();
+            var value = args.ReadValue<float>();
             if (value > 0)
             {
                 _OnUIMove(Vector2Int.right);
@@ -440,11 +445,11 @@ public class PanelTakePhotoMain : PanelBase
         }
         return true;
     }
-    private bool OnUIMoveY(InputAction.CallbackContext context)
+    private bool OnUIMoveY(InputActionArgs args)
     {
-        if (context.phase == InputActionPhase.Started)
+        if (InputEventType.Started.HasFlag(args.eventType))
         {
-            var value = context.ReadValue<float>();
+            var value = args.ReadValue<float>();
             if (value > 0)
             {
                 _OnUIMove(Vector2Int.up);
@@ -461,13 +466,13 @@ public class PanelTakePhotoMain : PanelBase
         var old_offset = G.player.takePhotoCameraComp.FocusIdxCenterOffset;
         G.player.takePhotoCameraComp.SetFocusIdxCenterOffset(old_offset + dir, G.player.takePhotoCameraComp.AutoFocusArea);
     }
-    private bool OnRightMouseClick(InputAction.CallbackContext context)
+    private bool OnRightMouseClick(InputActionArgs args)
     {
-        if (context.phase == InputActionPhase.Started)
+        if (InputEventType.Started.HasFlag(args.eventType))
         {
             G.player.stateComp.AddState(Const.StateConst.FOCUS);
         }
-        else if (context.phase == InputActionPhase.Canceled)
+        else if (InputEventType.Deactivated.HasFlag(args.eventType))
         {
             G.player.stateComp.RemoveState(Const.StateConst.FOCUS);
         }
@@ -482,11 +487,11 @@ public class PanelTakePhotoMain : PanelBase
     }
     public void OnApertureIdxChanged(int oldIdx, int newIdx)
     {
-        apertureText.text = G.player.takePhotoCameraComp.Aperture.ToString();
+        UpdateApertureText();
     }
     public void OnISOIdxChanged(int oldIdx, int newIdx)
     {
-        isoText.text = G.player.takePhotoCameraComp.ISO.ToString();
+        UpdateISOText();
     }
     private void OnExposurePriorityChanged(int oldValue, int newValue)
     {
@@ -502,7 +507,6 @@ public class PanelTakePhotoMain : PanelBase
     }
     private void OnLightMeteringModeChanged(int oldValue, int newValue)
     {
-        var currentLightMeteringModeImage = GetUICommon<LightMeteringModeImage>("LightMeteringModeImage");
         currentLightMeteringModeImage.SetLightMeteringMode(G.player.takePhotoCameraComp.MeteringMode);
     }
     private void OnFocusIdxCenterOffsetChanged(Vector2Int oldValue, Vector2Int newValue)

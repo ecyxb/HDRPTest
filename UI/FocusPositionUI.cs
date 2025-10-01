@@ -6,72 +6,30 @@ using UnityEngine;
 
 public class FocusPositionUI : UICommon
 {
+    protected static new Dictionary<string, string> __shortcuts__ = new Dictionary<string, string>();
+    protected override Dictionary<string, string> ShortCutsCache => __shortcuts__;
     protected override string[] SHORTCUT_OBJECTS => new string[]
     {
         "FocusTargetImageFakeOrigin",
+        "left",
+        "right",
+        "top",
+        "bottom",
+        "CenterPosition",
     };
-
-    // Start is called before the first frame update
-    [SerializeField]
-    private RectTransform leftSide;
-    [SerializeField]
-    private RectTransform rightSide;
-    [SerializeField]
-    private RectTransform topSide;
-    [SerializeField]
-    private RectTransform bottomSide;
-    [Space(10)]
-    [SerializeField]
-    private RectTransform centerPoint;
-
-    [SerializeField]
+    private RectTransform leftSide => this["left"];
+    private RectTransform rightSide => this["right"];
+    private RectTransform topSide => this["top"];
+    private RectTransform bottomSide => this["bottom"];
+    private RectTransform centerPoint => this["CenterPosition"];
     private float SideWidth = 5f;
-    // [SerializeField]
-    // private Vector2 blockSize = new Vector2(100, 100);
-
-# if UNITY_EDITOR
-    [Space(10)]
-    [SerializeField]
-    private RectTransform meterRect;
-    [SerializeField]
-    private RectTransform validMeterRect;
-#endif
-    [SerializeField]
     private Vector2Int MeterPixelSize = new Vector2Int(1000, 1000); //需要初始化的
-    [SerializeField]
     private Vector2Int MeterBlockNum = new Vector2Int(1, 1);
-    [SerializeField]
     private Vector2Int BlockPixelSize = new Vector2Int(100, 100);
-    [Space(10)]
-    [SerializeField]
     private Vector2Int BlockIdx = new Vector2Int(100, 100);
-    [SerializeField]
     private Vector2Int BlockNumSize = new Vector2Int(1, 1);
 
     private List<FocusTargetImageUI> focusPositionRects = new List<FocusTargetImageUI>();
-
-
-    // private Vector2 ValidLB
-    // {
-    //     get
-    //     {
-    //         return new Vector2(
-    //             Mathf.Max((transform as RectTransform).rect.width / 2 - MeterPixelSize.x / 2, 0),
-    //             Mathf.Max((transform as RectTransform).rect.height / 2 - MeterPixelSize.y / 2, 0)
-    //         );
-    //     }
-    // }
-    // private Vector2 ValidRT
-    // {
-    //     get
-    //     {
-    //         Rect rect = (transform as RectTransform).rect;
-    //         return new Vector2(
-    //             Mathf.Min(rect.width / 2 + MeterPixelSize.x / 2, rect.width),
-    //             Mathf.Min(rect.height / 2 + MeterPixelSize.y / 2, rect.height)
-    //         );
-    //     }
-    // }
 
     public void UpdateSideWith(float sideWidth)
     {
@@ -80,38 +38,8 @@ public class FocusPositionUI : UICommon
         rightSide.sizeDelta = new Vector2(SideWidth, rightSide.sizeDelta.y);
         topSide.sizeDelta = new Vector2(topSide.sizeDelta.x, SideWidth);
         bottomSide.sizeDelta = new Vector2(bottomSide.sizeDelta.x, SideWidth);
-        // #if UNITY_EDITOR
-        //         meterRect.localPosition = Vector3.zero;
-        //         meterRect.sizeDelta = new Vector2(MeterPixelSize.x, MeterPixelSize.y);
-        //         validMeterRect.localPosition = Vector3.zero;
-        //         validMeterRect.sizeDelta = new Vector2(ValidRT.x - ValidLB.x, ValidRT.y - ValidLB.y);
-        // #endif
     }
-    // public void SetBlockLT(Vector2Int blockNumSize, Vector2Int blockIdx, Vector2Int meterBlockNum)
-    // {
-    //     centerPoint.pivot = new Vector2(0, 0);
-    //     centerPoint.anchorMax = new Vector2(0, 0);
-    //     centerPoint.anchorMin = new Vector2(0, 0);
-    //     MeterBlockNum = new Vector2Int(
-    //         Math.Min(meterBlockNum.x, (int)(ValidRT.x - ValidLB.x) / BlockPixelSize.x),
-    //         Math.Min(meterBlockNum.y, (int)(ValidRT.y - ValidLB.y) / BlockPixelSize.y)
-    //     );
 
-    //     BlockIdx = new Vector2Int(
-    //         Mathf.Clamp(blockIdx.x, 0, MeterBlockNum.x - 1),
-    //         Mathf.Clamp(blockIdx.y, 0, MeterBlockNum.y - 1)
-    //     );
-    //     BlockNumSize = new Vector2Int(
-    //         Mathf.Clamp(blockNumSize.x, 1, MeterBlockNum.x - BlockIdx.x),
-    //         Mathf.Clamp(blockNumSize.y, 1, MeterBlockNum.y - BlockIdx.y)
-    //     );
-    //     centerPoint.anchoredPosition = new Vector2(
-    //         BlockIdx.x * BlockPixelSize.x + ValidLB.x,
-    //         BlockIdx.y * BlockPixelSize.y + ValidLB.y
-    //     );
-
-    //     centerPoint.sizeDelta = new Vector2(BlockPixelSize.x * BlockNumSize.x, BlockPixelSize.y * BlockNumSize.y);
-    // }
     public void SetBlock_Center(Vector2Int blockNumSize, Vector2Int blockIdx)
     {
         //blockIdx在这里是中心点偏移
@@ -255,7 +183,7 @@ public class FocusPositionUI : UICommon
                     if (invalidFocusPositionRects.Count == 0)
                     {
                         //如果没有可用的focusPosition，则创建一个新的
-                        focusTargetImageUI = Helpers.DynamicAttach<FocusTargetImageUI>(this, "FocusTargetImageUI", fatherRT);
+                        focusTargetImageUI = AttachUI<FocusTargetImageUI>(this, "FocusTargetImageUI", fatherRT);
                         if (focusTargetImageUI == null)
                         {
                             Debug.LogError("Failed to create FocusTargetImageUI");
@@ -283,42 +211,5 @@ public class FocusPositionUI : UICommon
         }
     }
 
-    // int UpdateDrawTarget(CameraTargetMono target)
-    // {
-    //     if (target == null) return -2;
-    //     for (int i = 0; i < cameraTargetMonos.Length; i++)
-    //     {
-    //         if (cameraTargetMonos[i] == target)
-    //         {
-    //             return i;
-    //         }
-    //     }
-    //     for (int i = 0; i < cameraTargetMonos.Length; i++)
-    //     {
-    //         if (cameraTargetMonos[i] == null)
-    //         {
-    //             cameraTargetMonos[i] = target;
-    //             return i;
-    //         }
-    //     }
-    //     return -1;
-    // }
-    // public void SetCircleFocusImage(int idx, Vector2 position, float radius, float borderSize)
-    // {
-    //     RectTransform focusImageRect = this[$"FocusPositionP{idx}"];
-    //     focusImageRect.position = position;
-    //     focusImageRect.sizeDelta = new Vector2(radius * 2, radius * 2);
-    //     borderSize = Mathf.Min(borderSize, radius); //确保边框大小不为0
-    //     focusImageMaterial.SetFloat("_InnerRadius", (radius - borderSize) / radius);
-    // }
 
 }
-// #if UNITY_EDITOR
-    //     void OnValidate()
-    //     {
-    //         UpdateSideWith(SideWidth);
-    //         SetBlockCenter(BlockNumSize, BlockIdx);
-    //         SetBlockColor(focusColor);
-    //     }
-    // #endif
-
