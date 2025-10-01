@@ -9,6 +9,18 @@ using UnityEngine.UI;
 
 public class PanelTakePhotoMain : PanelBase
 {
+    protected static new Dictionary<string, string> __shortcuts__ = null;
+    protected override Dictionary<string, string> ShortCutsCache => __shortcuts__;
+    protected override string[] SHORTCUT_OBJECTS => new string[]
+    {
+        "PanelExposeCompensationAP",
+        "CurrentLightMeteringModeImageAP",
+        "SelectTakePhotoParamsAP",
+        "PanelExposePriorityAP",
+        "NormalItems",
+        "FocusPositionAP",
+    };
+
     [Space(10)]
     public Image shutterPanelOutline;
     public TextMeshProUGUI shutterLTText;
@@ -45,26 +57,14 @@ public class PanelTakePhotoMain : PanelBase
 
     private FocusPositionUI focusPositionUI;
 
-    protected override string[] SHORTCUT_OBJECTS => new string[]
-    {
-        "PanelExposeCompensationAP",
-        "CurrentLightMeteringModeImageAP",
-        "SelectTakePhotoParamsAP",
-        "PanelExposePriorityAP",
-        "NormalItems",
-        "FocusPositionAP",
-    };
-    protected override List<BindUICommonArgs> UICOMMON_BIND => new List<BindUICommonArgs>
-    {
-        new BindUICommonArgs("ExposureCompensationRule", "PanelExposeCompensationAP", null, AspectRatioFitter.AspectMode.FitInParent),
-        new BindUICommonArgs("LightMeteringModeImage", "CurrentLightMeteringModeImageAP", null, AspectRatioFitter.AspectMode.FitInParent),
-        new BindUICommonArgs("ExposePriorityUI", "PanelExposePriorityAP", null, AspectRatioFitter.AspectMode.FitInParent),
-        new BindUICommonArgs("FocusPositionUI", "FocusPositionAP", null, AspectRatioFitter.AspectMode.None),
-    };
-
     protected override void OnLoad()
     {
-        selectTakePhotoParamsUI = AttachUI(new BindUICommonArgs("SelectTakePhotoParamsUI", "SelectTakePhotoParamsAP", null, AspectRatioFitter.AspectMode.FitInParent)) as SelectTakePhotoParamsUI;
+        AttachUI<ExposureCompensationRule>("ExposureCompensationRule", "PanelExposeCompensationAP", AspectRatioFitter.AspectMode.FitInParent);
+        AttachUI<LightMeteringModeImage>("LightMeteringModeImage", "CurrentLightMeteringModeImageAP", AspectRatioFitter.AspectMode.FitInParent);
+        AttachUI<ExposePriorityUI>("ExposePriorityUI", "PanelExposePriorityAP", AspectRatioFitter.AspectMode.FitInParent);
+        AttachUI<FocusPositionUI>("FocusPositionUI", "FocusPositionAP", AspectRatioFitter.AspectMode.None);
+
+        selectTakePhotoParamsUI = AttachUI<SelectTakePhotoParamsUI>("SelectTakePhotoParamsUI", "SelectTakePhotoParamsAP", AspectRatioFitter.AspectMode.FitInParent);
         selectTakePhotoParamsUI.ShowSettingSelect(SettingParamType.AutoFocusArea);
         selectTakePhotoParamsUI.Hide();
 
@@ -351,7 +351,7 @@ public class PanelTakePhotoMain : PanelBase
 
     public bool CheckBaseInputValid()
     {
-        if (selectTakePhotoParamsUI && selectTakePhotoParamsUI.gameObject.activeSelf)
+        if (selectTakePhotoParamsUI != null && selectTakePhotoParamsUI.gameObject.activeSelf)
         {
             return false;
         }
