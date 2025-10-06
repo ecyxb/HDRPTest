@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
-
+using EventFramework;
 public class FocusTargetImageUI : UICommon
 {
     public CameraTargetMono currentTarget { get; private set; }
@@ -126,7 +126,7 @@ public class FocusTargetImageUI : UICommon
         _image.color = new Color(_image.color.r, _image.color.g, _image.color.b, 1 - fadePercent);
         float radius = latestCheckData.GetRadius() * G.player.sfxComp.radialBlurFactor;
         Vector3 radialBlurPos = G.player.sfxComp.GetAfterRadialBlurScreenPosition(latestCheckData.screenPos);
-        var radialBlurPosUIPos = G.UI.ScreenPos2UIWorldPos(radialBlurPos, transform);
+        var radialBlurPosUIPos = G.UI.ScreenPos2UIWorldPos(radialBlurPos, transform,null);
 
         if (IsFadeOutAnimating)
         {

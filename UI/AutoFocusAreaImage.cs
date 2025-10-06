@@ -1,6 +1,7 @@
 
 using UnityEngine;
 using UnityEngine.UI;
+using EventFramework;
 
 public class AutoFocusAreaImage : UICommon
 {

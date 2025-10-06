@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Const
 {
@@ -43,11 +44,11 @@ namespace Const
         MIDDLE = 2,
         FULL = 3,
     }
-
-
     public enum TargetDrawUIType : byte
     {
         CIRCLE = 0,
 
     }
+
+
 }

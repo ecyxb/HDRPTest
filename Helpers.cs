@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting;
 using System.Text;
+using EventFramework;
 
 public static class Helpers
 {
@@ -297,18 +298,6 @@ public static class Helpers
         }
         return sb.ToString();
     }
-
-    public static GameObject FindUIPrefab(string uiName)
-    {
-        GameObject prefab = Resources.Load<GameObject>($"UIPrefabs/{uiName}");
-        if (prefab == null)
-        {
-            Debug.LogError($"UI prefab {uiName} not found in Resources/UIPrefabs.");
-            return null;
-        }
-        return prefab;
-    }
-
     public static void EnsureAspectRatioFitter(RectTransform obj, AspectRatioFitter.AspectMode aspectFit)
     {
         AspectRatioFitter fitter = obj.GetComponent<AspectRatioFitter>();
@@ -348,4 +337,5 @@ public static class Helpers
         // Normalize the angle to the range [-180, 180]
         return Mathf.Repeat(angle + 180f, 360f) - 180f;
     }
+    #endregion
 }

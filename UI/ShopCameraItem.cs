@@ -4,6 +4,31 @@ using Microsoft.Unity.VisualStudio.Editor;
 using TMPro;
 using UnityEngine;
 
+
+// 临时
+public class CameraData
+{
+    public string name;
+    public string priceText;
+    public string uiPath;
+    public int price;
+}
+
+public class LensData
+{
+    public string name;
+    public string priceText;
+    public string uiPath;
+    public int price;
+}
+public class PlugData
+{
+    public string name;
+    public string priceText;
+    public string uiPath;
+    public int price;
+}
+
 public class ShopCameraItem : MonoBehaviour
 {
     public RectTransform cameraName;
@@ -34,12 +59,12 @@ public class ShopCameraItem : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        
+
     }
 
     // Update is called once per frame
     void Update()
     {
-        
+
     }
 }

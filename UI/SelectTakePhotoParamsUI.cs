@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
-
+using EventFramework;
 public class SelectTakePhotoParamsUI : UICommon
 {
     protected static new Dictionary<string, string> __shortcuts__ = new Dictionary<string, string>();

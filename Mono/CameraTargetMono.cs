@@ -97,8 +97,8 @@ public class CameraTargetMono : MonoBehaviour
             );
             res.z = res.screenPos.z;
             res.targetDrawUIType = Const.TargetDrawUIType.CIRCLE;
-            var worldPos = G.UI.ScreenPos2UIWorldPos(res.screenPos, rt);
-            var sidePos = G.UI.ScreenPos2UIWorldPos(Helpers.WorldPos2ScreenPos(GetCenterPosition() + new Vector3(0, BoxSize.y * 0.5f, 0), camera), rt);
+            var worldPos = G.UI.ScreenPos2UIWorldPos(res.screenPos, rt, null);
+            var sidePos = G.UI.ScreenPos2UIWorldPos(Helpers.WorldPos2ScreenPos(GetCenterPosition() + new Vector3(0, BoxSize.y * 0.5f, 0), camera), rt, null);
             //坐标、半径、粗细
             float radius = Vector2.Distance(worldPos, sidePos);
             if (radius * 2 >= RTClamp.x - LBClamp.x || radius * 2 >= RTClamp.y - LBClamp.y)

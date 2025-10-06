@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
+using EventFramework;
 
 
 
 
 public class PanelCapture : PanelBase
 {
-    public override CanvasType CanvasType { get; } = CanvasType.PanelBase;
-
     private Image _image;
     private static RenderTexture _captureTexture;
     private Tween m_FadeTween;

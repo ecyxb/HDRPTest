@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
+using EventFramework;
 
 public class FocusPositionUI : UICommon
 {
@@ -71,7 +72,7 @@ public class FocusPositionUI : UICommon
 
     public Vector2 GetFocusPointScreenPos()
     {
-        return G.UI.UIWorldPos2ScreenPos(centerPoint.position);
+        return G.UI.UIWorldPos2ScreenPos(centerPoint.position, null);
     }
     public Vector3[] GetFocusPointScreenCorner()
     {
@@ -79,7 +80,7 @@ public class FocusPositionUI : UICommon
         centerPoint.GetWorldCorners(corners);
         for (int i = 0; i < corners.Length; i++)
         {
-            corners[i] = G.UI.UIWorldPos2ScreenPos(corners[i]);
+            corners[i] = G.UI.UIWorldPos2ScreenPos(corners[i], null);
         }
         return corners;
     }
@@ -183,7 +184,7 @@ public class FocusPositionUI : UICommon
                     if (invalidFocusPositionRects.Count == 0)
                     {
                         //如果没有可用的focusPosition，则创建一个新的
-                        focusTargetImageUI = AttachUI<FocusTargetImageUI>(this, "FocusTargetImageUI", fatherRT);
+                        focusTargetImageUI = DynamicAttach<FocusTargetImageUI>(this, "FocusTargetImageUI", fatherRT);
                         if (focusTargetImageUI == null)
                         {
                             Debug.LogError("Failed to create FocusTargetImageUI");

@@ -1,8 +1,7 @@
-using System.Collections;
 using System.Collections.Generic;
-using EventFramework;
 using UnityEngine;
 using UnityEngine.Rendering;
+using EventFramework;
 
 public class GameManager : MonoBehaviour
 {
