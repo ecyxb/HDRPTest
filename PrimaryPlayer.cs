@@ -92,7 +92,7 @@ public class PrimaryPlayer : MonoBehaviour
     private void EnterTakePhotoMode()
     {
         // G.UI.InstantiatePanel("PanelTakePhotoScreenOutput");
-        G.UI.EnsurePanel<PanelTakePhotoMain>("PanelTakePhotoMain");
+        // G.UI.EnsurePanel<PanelTakePhotoMain>("PanelTakePhotoMain");
         // takePhotoVirtualCameraObject.SetActive(true);
         // takePhotoCameraObject.SetActive(true);
     }
