@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using EventFramework;
 
-public class StateComp : EventCompBase
+public class StateComp : PrimaryPlayerCompBase
 {
     private bool m_Modifying = false;
 

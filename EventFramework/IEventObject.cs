@@ -30,6 +30,12 @@ namespace EventFramework
         void InVokeEvent<T1, T2>(string eventName, T1 data, T2 data2);
         void InVokeEvent<T1, T2, T3>(string eventName, T1 data, T2 data2, T3 data3);
     }
+    public interface IIDObject<T>
+    {
+        T GetID();
+        string GetIDString();
+        void SetID(T id);
+    } 
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
     public class EventProxyAttribute : Attribute

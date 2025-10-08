@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using EventFramework;
 
-public class AttrComp : EventCompBase
+public class AttrComp : PrimaryPlayerCompBase
 {
     public AttrComp(PrimaryPlayer player) : base(player, new Dictionary<string, UnionInt64>(), fixedSlot: false)
     {

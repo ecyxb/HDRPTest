@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.VisualScripting;
 
 namespace EventFramework
 {
@@ -21,18 +23,18 @@ namespace EventFramework
     /// 泛型对象池实现，用于管理可重用对象以减少垃圾回收压力
     /// </summary>
     /// <typeparam name="T">要池化的对象类型，必须是引用类型</typeparam>
-    public class ObjectPool<T> where T : class
+    public class SimpleObjectPool<T> where T : class
     {
         /// <summary>
-        /// 空闲对象池列表
+        /// 对象池列表，默认存储空闲对象
         /// </summary>
-        protected List<T> _freePool;
-        
+        protected List<T> _Pool;
+
         /// <summary>
         /// 创建新对象的函数
         /// </summary>
         protected Func<T> _createFunc;
-        
+
         /// <summary>
         /// 对象返回时的验证函数，决定对象是否应该返回到池中
         /// </summary>
@@ -58,7 +60,7 @@ namespace EventFramework
         /// <param name="returnFunc">对象返回时的验证函数，可选</param>
         /// <param name="maxFreePoolSize">空闲池的最大大小</param>
         /// <exception cref="Exception">当createFunc为null时抛出异常</exception>
-        public ObjectPool(
+        public SimpleObjectPool(
             Func<T> createFunc,
             Func<T, bool> returnFunc,
             int maxFreePoolSize
@@ -67,7 +69,7 @@ namespace EventFramework
             _createFunc = createFunc;
             _returnFunc = returnFunc;
             _maxFreePoolSize = Math.Max(1, maxFreePoolSize);
-            _freePool = new List<T>(_maxFreePoolSize);
+            _Pool = new List<T>(_maxFreePoolSize);
             if (_createFunc == null)
             {
                 throw new Exception("ObjectPool requires a createFunc to create new objects.");
@@ -76,16 +78,17 @@ namespace EventFramework
 
         /// <summary>
         /// 预热空闲池，创建指定数量的对象并添加到池中
+        /// 保证一定会有count个空闲对象
         /// </summary>
         /// <param name="count">要创建的对象数量</param>
-        public void WarmFreePool(int count)
+        public virtual void WarmFreePool(int count)
         {
-            if (_freePool.Count < count)
+            if (_Pool.Count < count)
             {
-                int toCreate = Math.Max(0, count - _freePool.Count);
+                int toCreate = Math.Max(0, count - _Pool.Count);
                 for (int i = 0; i < toCreate; i++)
                 {
-                    _freePool.Add(_createFunc());
+                    _Pool.Add(_createFunc());
                 }
             }
         }
@@ -95,12 +98,12 @@ namespace EventFramework
         /// </summary>
         /// <param name="newSize">新的最大大小（最小值为1）</param>
         /// <param name="shrinkIfNeeded">如果为true，当当前池大小超过新限制时会移除多余对象</param>
-        public void SetMaxFreePoolSize(int newSize, bool shrinkIfNeeded = true)
+        public virtual void SetMaxFreePoolSize(int newSize, bool shrinkIfNeeded = true)
         {
             _maxFreePoolSize = Math.Max(1, newSize);
-            if (shrinkIfNeeded && _freePool.Count > _maxFreePoolSize)
+            if (shrinkIfNeeded && _Pool.Count > _maxFreePoolSize)
             {
-                _freePool.RemoveRange(_maxFreePoolSize, _freePool.Count - _maxFreePoolSize);
+                _Pool.RemoveRange(_maxFreePoolSize, _Pool.Count - _maxFreePoolSize);
             }
         }
 
@@ -109,14 +112,14 @@ namespace EventFramework
         /// </summary>
         /// <param name="user">可选的用户跟踪参数（用于调试）</param>
         /// <returns>从池中获取的对象</returns>
-        public T Get(IObjectPoolUser<T> user = null)
+        public virtual T Get(IObjectPoolUser<T> user = null)
         {
-            if (_freePool.Count == 0)
+            if (_Pool.Count == 0)
             {
                 WarmFreePool(1);
             }
-            T obj = _freePool[_freePool.Count - 1];
-            _freePool.RemoveAt(_freePool.Count - 1);
+            T obj = _Pool[_Pool.Count - 1];
+            _Pool.RemoveAt(_Pool.Count - 1);
 #if EventFrameWork_DEBUG
             if (user != null)
             {
@@ -132,20 +135,20 @@ namespace EventFramework
         /// <param name="count">要获取的对象数量</param>
         /// <param name="user">可选的用户跟踪参数（用于调试）</param>
         /// <returns>包含指定数量对象的数组，如果count <= 0则返回空数组</returns>
-        public T[] Get(int count, IObjectPoolUser<T> user = null)
+        public virtual T[] Get(int count, IObjectPoolUser<T> user = null)
         {
             if (count <= 0)
             {
                 return Array.Empty<T>();
             }
-            if (_freePool.Count < count)
+            if (_Pool.Count < count)
             {
-                WarmFreePool(count - _freePool.Count);
+                WarmFreePool(count - _Pool.Count);
             }
             // 借的时候一起取出
             T[] objs = new T[count];
-            _freePool.CopyTo(_freePool.Count - count, objs, 0, count);
-            _freePool.RemoveRange(_freePool.Count - count, count);
+            _Pool.CopyTo(_Pool.Count - count, objs, 0, count);
+            _Pool.RemoveRange(_Pool.Count - count, count);
 #if EventFrameWork_DEBUG
             if (user != null)
             {
@@ -159,16 +162,16 @@ namespace EventFramework
         /// 将单个对象返回到对象池
         /// </summary>
         /// <param name="obj">要返回的对象，如果为null则忽略</param>
-        public void Return(T obj)
+        public virtual void Return(T obj)
         {
             if (obj == null) return;
             if (_returnFunc != null && !_returnFunc(obj))
             {
                 return;
             }
-            if (_freePool.Count < _maxFreePoolSize)
+            if (_Pool.Count < _maxFreePoolSize)
             {
-                _freePool.Add(obj);
+                _Pool.Add(obj);
             }
         }
 
@@ -176,7 +179,7 @@ namespace EventFramework
         /// 将多个对象返回到对象池
         /// </summary>
         /// <param name="objs">要返回的对象集合</param>
-        public void Return(IEnumerable<T> objs)
+        public virtual void Return(IEnumerable<T> objs)
         {
             if (objs == null)
             {
@@ -193,7 +196,7 @@ namespace EventFramework
         /// 让用户返回其持有的所有池化对象
         /// </summary>
         /// <param name="user">要返回对象的用户，如果为null则忽略</param>
-        public void UserReturn(IObjectPoolUser<T> user)
+        public virtual void UserReturn(IObjectPoolUser<T> user)
         {
             if (user == null)
             {
@@ -220,6 +223,104 @@ namespace EventFramework
             }
             Debug.Log(string.Join(", ", allTypes));
 #endif
+        }
+    }
+
+    public class Array_IDObjectPool<T> : SimpleObjectPool<T> where T : class, IIDObject<int>
+    {
+        protected List<int> _freeIds = new List<int>();
+        protected Func<T, bool> _getFunc = null;
+        public Array_IDObjectPool(int initFreeSize = 100, Func<T> createFunc = null, Func<T, bool> returnFunc = null, Func<T, bool> getFunc = null) : base(createFunc, returnFunc, 100000)
+        {
+            _Pool.Add(null); // 保留0号位不使用
+            WarmFreePool(initFreeSize);
+            _getFunc = getFunc;
+        }
+        public override void WarmFreePool(int count)
+        {
+            int toCreate = Math.Max(0, count - _freeIds.Count);
+            for (int i = 0; i < toCreate; i++)
+            {
+                T obj = _createFunc();
+                obj.SetID(_Pool.Count);
+                _freeIds.Add(_Pool.Count);
+                _Pool.Add(obj);
+            }
+        }
+        // 正确的缩容由子类来实现
+        public override void SetMaxFreePoolSize(int newSize, bool shrinkIfNeeded = true)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override T Get(IObjectPoolUser<T> user = null)
+        {
+            if (_freeIds.Count == 0)
+            {
+                WarmFreePool(1);
+            }
+            T obj = _Pool[_freeIds[_freeIds.Count - 1]];
+            bool isSuccess = _getFunc?.Invoke(obj) ?? true;
+            _freeIds.RemoveAt(_freeIds.Count - 1); // 就算失败也要移除ID
+            obj = isSuccess ? obj : null;
+#if EventFrameWork_DEBUG
+            if (user != null)
+            {
+                _users.Add(user);
+            }
+#endif
+            return obj;
+        }
+        public override T[] Get(int count, IObjectPoolUser<T> user = null)
+        {
+            if (count <= 0)
+            {
+                return Array.Empty<T>();
+            }
+            if (_freeIds.Count < count)
+            {
+                WarmFreePool(count - _freeIds.Count);
+            }
+            // 借的时候一起取出
+            T[] objs = new T[count];
+            for (int i = 0; i < count; i++)
+            {
+                bool isSuccess = _getFunc?.Invoke(objs[i]) ?? true;
+                if (!isSuccess)
+                {
+                    EOHelper.LogError("Failed to get object from pool.");
+                    objs[i] = null;
+                }
+                else
+                {
+                    objs[i] = _Pool[_freeIds[_freeIds.Count - 1 - i]];
+                }
+            }
+            _freeIds.RemoveRange(_freeIds.Count - count, count);
+#if EventFrameWork_DEBUG
+            if (user != null)
+            {
+                _users.Add(user);
+            }
+#endif
+            return objs;
+
+        }
+        public override void Return(T obj)
+        {
+            if (obj == null) return;
+            int id = obj.GetID();
+            if (id <= 0 || id >= _Pool.Count || _Pool[id] != obj)
+            {
+                EOHelper.LogError("Trying to return an object that does not belong to this pool.");
+                return;
+            }
+            _freeIds.Add(id);
+            _returnFunc?.Invoke(obj);// 触发returnFunc但不检查返回值，因为id是对的就一定要还
+        }
+        public T this[int idx]
+        {
+            get { return idx > 0 && idx < _Pool.Count ? _Pool[idx] : null; }
         }
     }
 }

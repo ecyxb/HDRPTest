@@ -62,7 +62,7 @@ public struct ExposureParaValue
 }
 
 
-public class TakePhotoCameraComp : EventCompBase
+public class TakePhotoCameraComp : PrimaryPlayerCompBase
 {
     private ExposureParaValue evParaValue;
     private float RealWantBaseEV100;

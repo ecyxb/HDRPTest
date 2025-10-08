@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 using EventFramework;
+
+
 
 public class GameManager : MonoBehaviour
 {
@@ -9,13 +10,13 @@ public class GameManager : MonoBehaviour
     private List<CameraTargetMono> cameraTargetMonos = new List<CameraTargetMono>(4);
     public Timer Timer { get; private set; } = new Timer();
 
-    public Volume[] allVolumes;
+    public UnityEngine.Rendering.Volume[] allVolumes;
 
     // Start is called before the first frame update
     void Awake()
     {
         Timer.Awake();
-        allVolumes = FindObjectsByType<Volume>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        allVolumes = FindObjectsByType<UnityEngine.Rendering.Volume>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
         G.gameManager = this;
     }
 
@@ -103,7 +104,7 @@ public class GameManager : MonoBehaviour
             cameraTargetMonos.Add(cameraTargetMono);
         }
     }
-    
+
     public List<CameraTargetMono> GetCameraTargets()
     {
         return new List<CameraTargetMono>(cameraTargetMonos);

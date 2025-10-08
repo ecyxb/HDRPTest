@@ -41,7 +41,6 @@ public sealed class G
     public static LocalizationLanguage CurrentLanguage { get; } = LocalizationLanguage.Chinese;
     public static PrimaryPlayer player { get; set; }
     public static GameManager gameManager { get; set; }
-
     private static InputManager m_inputMgr;
     public static InputManager InputMgr
     {

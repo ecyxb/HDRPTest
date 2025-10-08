@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using EventFramework;
 
-public class SfxComp : EventCompBase
+public class SfxComp : PrimaryPlayerCompBase
 {
     public Vector3 radialBlurCenter { get; private set; } = Vector3.zero;
     public float radialBlurFactor { get{ GetValue("radialBlurFactor", out float blurAmount); return blurAmount; } }

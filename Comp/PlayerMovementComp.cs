@@ -5,7 +5,7 @@ using EventFramework;
 using Unity.VisualScripting;
 using UnityEngine.InputSystem;
 
-public class PlayerMovementComp : EventCompBase
+public class PlayerMovementComp : PrimaryPlayerCompBase
 {
     // 输入
     private Vector2 m_moveVector;
