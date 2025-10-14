@@ -62,9 +62,9 @@ public struct ExposureParaValue
 }
 
 
-public class TakePhotoCameraComp : PrimaryPlayerCompBase
+public class TakePhotoCameraComp : EventCompBase
 {
-    private ExposureParaValue evParaValue;
+    PrimaryPlayer m_player => GetParentDict() as PrimaryPlayer;    private ExposureParaValue evParaValue;
     private float RealWantBaseEV100;
     private float WantBaseEV => RealWantBaseEV100 - EVCompensation + ISOEV;
     private uint focalLengthChangeTimer;
@@ -98,7 +98,7 @@ public class TakePhotoCameraComp : PrimaryPlayerCompBase
     public delegate void ClampBlockIdx_CenterFunc(Vector2Int blockSize, out Vector2Int minClamp, out Vector2Int maxClamp);
     public ClampBlockIdx_CenterFunc ClampBlockIdx_Center;
 
-    public TakePhotoCameraComp(PrimaryPlayer player) : base(player, slotMap)
+    public TakePhotoCameraComp() : base(slotMap)
     {
     }
 

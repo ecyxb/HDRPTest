@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using EventFramework;
 
-public class SfxComp : PrimaryPlayerCompBase
+public class SfxComp : EventCompBase
 {
+    PrimaryPlayer m_player => GetParentDict() as PrimaryPlayer;
     public Vector3 radialBlurCenter { get; private set; } = Vector3.zero;
     public float radialBlurFactor { get{ GetValue("radialBlurFactor", out float blurAmount); return blurAmount; } }
     protected static Dictionary<string, UnionInt64> slotMap = new Dictionary<string, UnionInt64>
     {
         { "radialBlurFactor", 1f },
     };
-    public SfxComp(PrimaryPlayer player) : base(player, slotMap, true)
+    public SfxComp() : base(slotMap, true)
     {
 
     }

@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using JetBrains.Annotations;
 using UnityEditor;
 using UnityEngine;
+using EventFramework;
 
-
-public class PrimaryPlayer : MonoBehaviour
+public class PrimaryPlayer : EventObject
 {
+
     private Cinemachine.CinemachineVirtualCamera takePhotoVirtualCamera;
     public TakePhotoCameraMono takePhotoCameraMono { get; private set; }
     public Camera RenderCamera => takePhotoCameraMono.GetComponent<Camera>();
@@ -14,38 +15,48 @@ public class PrimaryPlayer : MonoBehaviour
     public PhotoCalculator photoCalculator { get; private set; }
 
 
-    public StateComp stateComp { get; private set; }
-    public AttrComp attrComp { get; private set; }
-    public TakePhotoCameraComp takePhotoCameraComp { get; private set; }
-    public PlayerMovementComp playerMovementComp { get; private set; }
-    public SfxComp sfxComp { get; private set; }
+    public StateComp stateComp  => (StateComp)this["stateComp"];
+    public AttrComp attrComp  => (AttrComp)this["attrComp"];
+    public TakePhotoCameraComp takePhotoCameraComp  => (TakePhotoCameraComp)this["takePhotoCameraComp"];
+    public PlayerMovementComp playerMovementComp  => (PlayerMovementComp)this["playerMovementComp"];
+    public SfxComp sfxComp  => (SfxComp)this["sfxComp"];
 
 
     public bool IsFirstPerson { get; private set; } = true;
 
     // Start is called before the first frame update
+    protected static Dictionary<string, UnionInt64> _DataMap => new Dictionary<string, UnionInt64>
+    {
+        { "stateComp", new StateComp() },
+        { "attrComp", new AttrComp() },
+        { "takePhotoCameraComp", new TakePhotoCameraComp() },
+        { "playerMovementComp", new PlayerMovementComp() },
+        { "sfxComp", new SfxComp() },
+    };
+    PrimaryPlayer(GameObject gameobject) : base(gameobject, _DataMap, true)
+    {
+        this.gameobject = gameobject;
+        computeCameraTexture = new RenderTexture(512, 512, 24);
+        computeCameraTexture.enableRandomWrite = true;
+        computeCameraTexture.Create();
+    }
     void Awake()
     {
         this.Assert(G.player == null, "PrimaryPlayer already initialized.");
         G.player = this;
 
-        GameObject takePhotoCameraObject = Instantiate(Resources.Load<GameObject>("Prefabs/TakePhotoMainCamera"));
+        GameObject takePhotoCameraObject = GameObject.Instantiate(Resources.Load<GameObject>("Prefabs/TakePhotoMainCamera"));
         takePhotoCameraMono = takePhotoCameraObject.GetComponent<TakePhotoCameraMono>();
         photoCalculator = new PhotoCalculator(new Vector2Int(computeCameraTexture.width, computeCameraTexture.height));
-        takePhotoCameraObject.transform.position = transform.position + new Vector3(0, 1.5f, 0);
+        takePhotoCameraObject.transform.position = gameobject.transform.position + new Vector3(0, 1.5f, 0);
         // GetComponent<TakePhotoController>().CinemachineCameraTarget = takePhotoCameraObject;
 
-        takePhotoVirtualCamera = Instantiate(Resources.Load<GameObject>("Prefabs/TakePhotoVirtualCamera")).GetComponent<Cinemachine.CinemachineVirtualCamera>();
+        takePhotoVirtualCamera = GameObject.Instantiate(Resources.Load<GameObject>("Prefabs/TakePhotoVirtualCamera")).GetComponent<Cinemachine.CinemachineVirtualCamera>();
         var virtualCameraTransform = takePhotoVirtualCamera.transform;
         virtualCameraTransform.position = takePhotoCameraObject.transform.position;
-        virtualCameraTransform.SetParent(gameObject.transform);
+        virtualCameraTransform.SetParent(gameobject.transform);
         virtualCameraTransform.localRotation = Quaternion.Euler(0, 0, 0);
 
-        stateComp = new StateComp(this);
-        attrComp = new AttrComp(this);
-        takePhotoCameraComp = new TakePhotoCameraComp(this);
-        playerMovementComp = new PlayerMovementComp(this);
-        sfxComp = new SfxComp(this);
 
     }
 
@@ -113,12 +124,12 @@ public class PrimaryPlayer : MonoBehaviour
 
     public void RotateYawSelf(float angle)
     {
-        transform.Rotate(Vector3.up * angle);
+        gameobject.transform.Rotate(Vector3.up * angle);
     }
     public void SetYawSelf(float yaw)
     {
         Quaternion q = Quaternion.Euler(0, yaw, 0);
-        transform.rotation = q;
+        gameobject.transform.rotation = q;
     }
 
     void UpdateRenderCameraData(float delta)

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using EventFramework;
 
-public class StateComp : PrimaryPlayerCompBase
+public class StateComp : EventCompBase
 {
     private bool m_Modifying = false;
 
@@ -17,7 +17,7 @@ public class StateComp : PrimaryPlayerCompBase
 
     };
     // Start is called before the first frame update
-    public StateComp(PrimaryPlayer player) : base(player, slotMap)
+    public StateComp() : base(slotMap)
     {
         m_states = new bool[DataLoader.Instance.stateDataMap.Count];
     }

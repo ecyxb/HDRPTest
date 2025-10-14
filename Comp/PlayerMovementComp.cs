@@ -5,8 +5,9 @@ using EventFramework;
 using Unity.VisualScripting;
 using UnityEngine.InputSystem;
 
-public class PlayerMovementComp : PrimaryPlayerCompBase
+public class PlayerMovementComp : EventCompBase
 {
+    PrimaryPlayer m_player => GetParentDict() as PrimaryPlayer;
     // 输入
     private Vector2 m_moveVector;
     private CharacterController _controller;
@@ -33,9 +34,9 @@ public class PlayerMovementComp : PrimaryPlayerCompBase
     };
 
     // Start is called before the first frame update
-    public PlayerMovementComp(PrimaryPlayer player) : base(player, slotMap)
+    public PlayerMovementComp() : base(slotMap)
     {
-        _controller = player.GetComponent<CharacterController>();
+        _controller = m_player.GetComponent<CharacterController>();
         ResetPosition(new Vector3(-5, 4, 0));
 
     }
@@ -47,10 +48,10 @@ public class PlayerMovementComp : PrimaryPlayerCompBase
     public override void CompStart()
     {
         base.CompStart();
-        G.InputMgr.RegisterInput("Move", InputEventType.Actived | InputEventType.Deactivated, OnMove, m_player.gameObject);
-        G.InputMgr.RegisterInput("Sprint", InputEventType.Deactivated | InputEventType.Started, OnSprint, m_player.gameObject);
-        G.InputMgr.RegisterInput("Look", InputEventType.Actived | InputEventType.Deactivated, OnLook, m_player.gameObject);
-        G.InputMgr.RegisterInput("Jump", InputEventType.Started, OnJump, m_player.gameObject);
+        G.InputMgr.RegisterInput("Move", InputEventType.Actived | InputEventType.Deactivated, OnMove, m_player.gameobject);
+        G.InputMgr.RegisterInput("Sprint", InputEventType.Deactivated | InputEventType.Started, OnSprint, m_player.gameobject);
+        G.InputMgr.RegisterInput("Look", InputEventType.Actived | InputEventType.Deactivated, OnLook, m_player.gameobject);
+        G.InputMgr.RegisterInput("Jump", InputEventType.Started, OnJump, m_player.gameobject);
 
     }
 

@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.VisualScripting;
+using UnityEditor.SceneManagement;
+
 
 #if EVENT_OBJ_IN_UNITY_PROJECT
 using UnityEngine;
@@ -791,26 +793,54 @@ namespace EventFramework
     }
     public class EventObject : WithEventCustomDictionary
     {
-
-        public EventObject(Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
+        public GameObject gameobject { get; protected set; }
+        protected EventObject(GameObject gameobject, Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
         {
-
+            this.gameobject = gameobject;
         }
-        public EventObject(Dictionary<string, byte> slots, bool fixedSlot = true) : base(slots, fixedSlot)
+        // protected EventObject(MonoBehaviour gameobject, Dictionary<string, byte> slots, bool fixedSlot = true) : base(slots, fixedSlot)
+        // {
+
+        // }
+        public T AddComponent<T>() where T : Component
         {
-
+            return gameobject?.AddComponent<T>();
         }
+        public T GetComponent<T>() where T : Component
+        {
+            return gameobject?.GetComponent<T>();
+        }
+        public Transform transform => gameobject?.transform;
+        public static implicit operator bool(EventObject o)
+        {
+            return o != null;
+        }
+
     }
-    public class EvenntCompBase : WithEventCustomDictionary
+    public class EventCompBase : WithEventCustomDictionary
     {
-        public EvenntCompBase(Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
+        public EventObject Owner => GetParentDict() as EventObject;
+
+        protected EventCompBase(Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
         {
 
         }
-        public EvenntCompBase(Dictionary<string, byte> slots, bool fixedSlot = true) : base(slots, fixedSlot)
+        protected EventCompBase(Dictionary<string, byte> slots, bool fixedSlot = true) : base(slots, fixedSlot)
         {
 
         }
+
+        public virtual void CompStart()
+        {
+
+        }
+
+        public virtual void CompDestroy()
+        {
+            // Override this method to handle component destruction
+        }
+        
+
     }
     public class CustomDictionaryMgr
     {
