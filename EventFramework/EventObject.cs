@@ -200,7 +200,7 @@ namespace EventFramework
         {
             if (s.type == CDICT)
             {
-                return CustomDictionaryPool.Instance[(int)s.data];
+                return CustomDictionaryMgr.Instance[(int)s.data]; //0表示null
             }
             return null;
         }
@@ -223,7 +223,7 @@ namespace EventFramework
         {
             UnionInt64 instance;
             instance.type = CDICT;
-            instance.data = (long)cdict.__with_parent_pool_id__;
+            instance.data = cdict == null ? 0 : (long)cdict.__with_parent_pool_id__;
             return instance;
         }
 
@@ -279,6 +279,12 @@ namespace EventFramework
                 case FLOAT2:
                     return (UnionInt64)Vector2.zero;
 #endif
+                case CDICT:
+                    UnionInt64 instance;
+                    instance.type = CDICT;
+                    instance.data = 0;
+                    return instance;
+
                 default:
                     return new UnionInt64();
             }
@@ -397,13 +403,15 @@ namespace EventFramework
         {
             // m_data为Null，表示未初始化，不占用额外的空间
             m_fixedSlot = false;
+            CustomDictionaryMgr.Instance.GenIdForCustomDictionary(this, SetID);
         }
-        public void InitDictionaryData(Dictionary<string, UnionInt64> data, bool fixedSlot = true)
+        public CustomDictionary(Dictionary<string, UnionInt64> data, bool fixedSlot = true)
         {
             m_data = new Dictionary<string, UnionInt64>(data);
             m_fixedSlot = fixedSlot;
+            CustomDictionaryMgr.Instance.GenIdForCustomDictionary(this, SetID);
         }
-        public void InitDictionaryData(Dictionary<string, byte> slots, bool fixedSlot = true)
+        public CustomDictionary(Dictionary<string, byte> slots, bool fixedSlot = true)
         {
             m_data = new Dictionary<string, UnionInt64>();
             foreach (var slot in slots)
@@ -411,18 +419,11 @@ namespace EventFramework
                 m_data[slot.Key] = UnionInt64.GetDefault(slot.Value);
             }
             m_fixedSlot = fixedSlot;
+            CustomDictionaryMgr.Instance.GenIdForCustomDictionary(this, SetID);
         }
 
-        public CustomDictionary(Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base()
-        {
-            InitDictionaryData(data, fixedSlot);
-        }
-        public CustomDictionary(Dictionary<string, byte> slots, bool fixedSlot = true) : base()
-        {
-            InitDictionaryData(slots, fixedSlot);
-        }
         public Dictionary<string, List<ValueTuple<DelegateArgType, Delegate>>> __prop_event_dic__ = new Dictionary<string, List<ValueTuple<DelegateArgType, Delegate>>>();
-        
+
         protected UnionInt64 this[string fieldName]
         {
             get => m_data[fieldName];
@@ -630,7 +631,7 @@ namespace EventFramework
             return __with_parent_pool_id__.ToString();
         }
 
-        public void SetID(int id)
+        private void SetID(int id)
         {
             __with_parent_pool_id__ = (__with_parent_pool_id__ & 0xFFFFFFFF00000000) | (uint)id;
         }
@@ -638,52 +639,64 @@ namespace EventFramework
         {
             return (int)(__with_parent_pool_id__ >> 32); // 高32位存储父pool的ID
         }
+
         public CustomDictionary GetParentDict()
         {
-            return CustomDictionaryPool.Instance[GetParentID()];
+            return CustomDictionaryMgr.Instance[GetParentID()];
         }
         // 禁止由子dict直接修改父dict的ID
         private void SetParentID(System.UInt64 parentID)
         {
             __with_parent_pool_id__ = (__with_parent_pool_id__ & 0xFFFFFFFF) | (parentID << 32);
         }
-        public void TryClear()
+        public void StartRecursiveClear()
         {
             if (GetParentDict() != null)
             {
                 return; // 有父节点的dict不允许Clear
             }
+            RecursiveClear();
+        }
+
+        public void RecursiveClear()
+        {
+            // 防止重复清理（环检测）
+            if (!IsValid)
+            {
+                return; // 已经被清理过，避免死循环
+            }
+            
             // 清理所有子dict的父ID
-            foreach (var value in m_data.Values)
+            var tmpdata = m_data;
+            m_data = null; // 立即标记为无效，防止环导致的递归
+            
+            foreach (var value in tmpdata.Values)
             {
                 if (value.type == UnionInt64.CDICT)
                 {
-                    ((CustomDictionary)value)?.SetParentID(0);
+                    ((CustomDictionary)value)?.RecursiveClear();
                 }
             }
-            CustomDictionaryPool.Instance.UserReturn(this);
-            m_data = null;
+            
+            CustomDictionaryMgr.Instance.ClearIDForCustomDictionary(this);
+            __with_parent_pool_id__ = 0;
         }
-        
+
 
     }
 
 
-    public class EventObject
-    {
 
-    }
-    public class EventCompBase : CustomDictionary, IEventProxy
+    public class WithEventCustomDictionary : CustomDictionary, IEventProxy
     {
         private Dictionary<string, Delegate> __event_dic__ = null;
-
-        public EventCompBase(Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
-        {
-        }
-        public EventCompBase(Dictionary<string, byte> slots, bool fixedSlot = true) : base(slots, fixedSlot)
+        public WithEventCustomDictionary(Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
         {
         }
 
+        public WithEventCustomDictionary(Dictionary<string, byte> slots, bool fixedSlot = true) : base(slots, fixedSlot){
+            
+        }
 
         private void RegisterEventInternal(string eventName, Delegate action)
         {
@@ -776,84 +789,87 @@ namespace EventFramework
         public void InVokeEvent<T1, T2, T3>(string eventName, T1 data, T2 data2, T3 data3)
             => InvokeEventInterval<Action<T1, T2, T3>>(eventName)?.Invoke(data, data2, data3);
     }
+    public class EventObject : WithEventCustomDictionary
+    {
 
-    public class CustomDictionaryPool : Array_IDObjectPool<CustomDictionary>
+        public EventObject(Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
+        {
+
+        }
+        public EventObject(Dictionary<string, byte> slots, bool fixedSlot = true) : base(slots, fixedSlot)
+        {
+
+        }
+    }
+    public class EvenntCompBase : WithEventCustomDictionary
+    {
+        public EvenntCompBase(Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
+        {
+
+        }
+        public EvenntCompBase(Dictionary<string, byte> slots, bool fixedSlot = true) : base(slots, fixedSlot)
+        {
+
+        }
+    }
+    public class CustomDictionaryMgr
     {
         // TODO：在空闲时间销毁没有父节点的CustomDictionary，防止内存无限增长
-        public static CustomDictionaryPool Instance = new CustomDictionaryPool(200);
-        private Dictionary<string, UnionInt64> tmpdata;
-        private Dictionary<string, byte> tmpslots;
-        private bool tmpfixedSlot;
+        public static CustomDictionaryMgr Instance = new CustomDictionaryMgr(200);
+        protected Stack<int> _freeIds = new Stack<int>();
+        protected List<CustomDictionary> _Pool = null;
 
         private HashSet<IObjectPoolUser<CustomDictionary>> _returningCustomDictionaries = new HashSet<IObjectPoolUser<CustomDictionary>>();
-        public CustomDictionaryPool(int initFreeSize = 100) : base(initFreeSize, CustomDictionaryCreateFunc, CustomDictionaryReturnFunc, OnGetCustomDictionary)
+        public CustomDictionaryMgr(int initFreeSize = 100)
         {
+            _Pool = new List<CustomDictionary>(initFreeSize + 1)
+            {
+                null // 保留0号位不使用
+            };
+            _freeIds = new Stack<int>(initFreeSize);
         }
-        public CustomDictionary GetCustomDictionary(Dictionary<string, UnionInt64> data, bool fixedSlot = true, IObjectPoolUser<CustomDictionary> user = null)
+        public void GenIdForCustomDictionary(CustomDictionary obj, Action<int> SetIDAction = null)
         {
-            tmpdata = data;
-            tmpfixedSlot = fixedSlot;
-            tmpslots = null;
-            var dict = Get(user);
-            tmpdata = null;
-            return dict;
+            if (_freeIds.Count > 0)
+            {
+                int id = _freeIds.Pop();
+                SetIDAction?.Invoke(id);
+                _Pool[id] = obj;
+            }
+            else
+            {
+                int id = _Pool.Count;
+                SetIDAction?.Invoke(id);
+                _Pool.Add(obj);
+            }
         }
-        public CustomDictionary GetCustomDictionary(Dictionary<string, byte> slots, bool fixedSlot = true, IObjectPoolUser<CustomDictionary> user = null)
+        public CustomDictionary this[int id]
         {
-            tmpdata = null;
-            tmpfixedSlot = fixedSlot;
-            tmpslots = slots;
-            var dict = Get(user);
-            tmpdata = null;
-            return dict;
+            get
+            {
+                if (id <= 0 || id >= _Pool.Count)
+                {
+                    return null;
+                }
+                return _Pool[id];
+            }
         }
 
-        private static bool OnGetCustomDictionary(CustomDictionary obj)
+        public void ClearIDForCustomDictionary(CustomDictionary obj)
         {
-            if (obj.IsValid)
-            {
-                return false;
-            }
-            if (Instance.tmpdata != null)
-            {
-                obj.InitDictionaryData(Instance.tmpdata, Instance.tmpfixedSlot);
-                return true;
-            }
-            obj.InitDictionaryData(Instance.tmpslots, Instance.tmpfixedSlot);
-            return true;
-        }
-
-        private static CustomDictionary CustomDictionaryCreateFunc()
-        {
-            return new CustomDictionary();
-        }
-        private static bool CustomDictionaryReturnFunc(CustomDictionary obj)
-        {
-            obj.TryClear();
-            return true;
-        }
-        
-        public override void UserReturn(IObjectPoolUser<CustomDictionary> user)
-        {
-            if (user == null)
+            int id = obj.GetID();
+            if (id <= 0 || id >= _Pool.Count)
             {
                 return;
             }
-            if (_returningCustomDictionaries.Contains(user))
+            if (_Pool[id] == null)
             {
-                EOHelper.LogError($"CustomDictionaryPool: Detected recursive return of CustomDictionary, check circle.");
                 return;
             }
-            _returningCustomDictionaries.Add(user);
-#if EventFrameWork_DEBUG
-            _users.Remove(user);
-            Return(user.AllPoolObjects());
-#else
-            Return(user.AllPoolObjects());
-#endif
-            _returningCustomDictionaries.Remove(user);
+            _Pool[id] = null;
+            _freeIds.Push(id);
         }
 
     }
-
+    
 }

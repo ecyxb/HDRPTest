@@ -34,7 +34,6 @@ namespace EventFramework
     {
         T GetID();
         string GetIDString();
-        void SetID(T id);
     } 
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]

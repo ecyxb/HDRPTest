@@ -226,101 +226,101 @@ namespace EventFramework
         }
     }
 
-    public class Array_IDObjectPool<T> : SimpleObjectPool<T> where T : class, IIDObject<int>
-    {
-        protected List<int> _freeIds = new List<int>();
-        protected Func<T, bool> _getFunc = null;
-        public Array_IDObjectPool(int initFreeSize = 100, Func<T> createFunc = null, Func<T, bool> returnFunc = null, Func<T, bool> getFunc = null) : base(createFunc, returnFunc, 100000)
-        {
-            _Pool.Add(null); // 保留0号位不使用
-            WarmFreePool(initFreeSize);
-            _getFunc = getFunc;
-        }
-        public override void WarmFreePool(int count)
-        {
-            int toCreate = Math.Max(0, count - _freeIds.Count);
-            for (int i = 0; i < toCreate; i++)
-            {
-                T obj = _createFunc();
-                obj.SetID(_Pool.Count);
-                _freeIds.Add(_Pool.Count);
-                _Pool.Add(obj);
-            }
-        }
-        // 正确的缩容由子类来实现
-        public override void SetMaxFreePoolSize(int newSize, bool shrinkIfNeeded = true)
-        {
-            throw new NotImplementedException();
-        }
+//     public class Array_IDObjectPool<T> : SimpleObjectPool<T> where T : class, IIDObject<int>
+//     {
+//         protected List<int> _freeIds = new List<int>();
+//         protected Func<T, bool> _getFunc = null;
+//         public Array_IDObjectPool(int initFreeSize = 100, Func<T> createFunc = null, Func<T, bool> returnFunc = null, Func<T, bool> getFunc = null) : base(createFunc, returnFunc, 100000)
+//         {
+//             _Pool.Add(null); // 保留0号位不使用
+//             WarmFreePool(initFreeSize);
+//             _getFunc = getFunc;
+//         }
+//         public override void WarmFreePool(int count)
+//         {
+//             int toCreate = Math.Max(0, count - _freeIds.Count);
+//             for (int i = 0; i < toCreate; i++)
+//             {
+//                 T obj = _createFunc();
+//                 obj.SetID(_Pool.Count);
+//                 _freeIds.Add(_Pool.Count);
+//                 _Pool.Add(obj);
+//             }
+//         }
+//         // 正确的缩容由子类来实现
+//         public override void SetMaxFreePoolSize(int newSize, bool shrinkIfNeeded = true)
+//         {
+//             throw new NotImplementedException();
+//         }
 
-        public override T Get(IObjectPoolUser<T> user = null)
-        {
-            if (_freeIds.Count == 0)
-            {
-                WarmFreePool(1);
-            }
-            T obj = _Pool[_freeIds[_freeIds.Count - 1]];
-            bool isSuccess = _getFunc?.Invoke(obj) ?? true;
-            _freeIds.RemoveAt(_freeIds.Count - 1); // 就算失败也要移除ID
-            obj = isSuccess ? obj : null;
-#if EventFrameWork_DEBUG
-            if (user != null)
-            {
-                _users.Add(user);
-            }
-#endif
-            return obj;
-        }
-        public override T[] Get(int count, IObjectPoolUser<T> user = null)
-        {
-            if (count <= 0)
-            {
-                return Array.Empty<T>();
-            }
-            if (_freeIds.Count < count)
-            {
-                WarmFreePool(count - _freeIds.Count);
-            }
-            // 借的时候一起取出
-            T[] objs = new T[count];
-            for (int i = 0; i < count; i++)
-            {
-                bool isSuccess = _getFunc?.Invoke(objs[i]) ?? true;
-                if (!isSuccess)
-                {
-                    EOHelper.LogError("Failed to get object from pool.");
-                    objs[i] = null;
-                }
-                else
-                {
-                    objs[i] = _Pool[_freeIds[_freeIds.Count - 1 - i]];
-                }
-            }
-            _freeIds.RemoveRange(_freeIds.Count - count, count);
-#if EventFrameWork_DEBUG
-            if (user != null)
-            {
-                _users.Add(user);
-            }
-#endif
-            return objs;
+//         public override T Get(IObjectPoolUser<T> user = null)
+//         {
+//             if (_freeIds.Count == 0)
+//             {
+//                 WarmFreePool(1);
+//             }
+//             T obj = _Pool[_freeIds[_freeIds.Count - 1]];
+//             bool isSuccess = _getFunc?.Invoke(obj) ?? true;
+//             _freeIds.RemoveAt(_freeIds.Count - 1); // 就算失败也要移除ID
+//             obj = isSuccess ? obj : null;
+// #if EventFrameWork_DEBUG
+//             if (user != null)
+//             {
+//                 _users.Add(user);
+//             }
+// #endif
+//             return obj;
+//         }
+//         public override T[] Get(int count, IObjectPoolUser<T> user = null)
+//         {
+//             if (count <= 0)
+//             {
+//                 return Array.Empty<T>();
+//             }
+//             if (_freeIds.Count < count)
+//             {
+//                 WarmFreePool(count - _freeIds.Count);
+//             }
+//             // 借的时候一起取出
+//             T[] objs = new T[count];
+//             for (int i = 0; i < count; i++)
+//             {
+//                 bool isSuccess = _getFunc?.Invoke(objs[i]) ?? true;
+//                 if (!isSuccess)
+//                 {
+//                     EOHelper.LogError("Failed to get object from pool.");
+//                     objs[i] = null;
+//                 }
+//                 else
+//                 {
+//                     objs[i] = _Pool[_freeIds[_freeIds.Count - 1 - i]];
+//                 }
+//             }
+//             _freeIds.RemoveRange(_freeIds.Count - count, count);
+// #if EventFrameWork_DEBUG
+//             if (user != null)
+//             {
+//                 _users.Add(user);
+//             }
+// #endif
+//             return objs;
 
-        }
-        public override void Return(T obj)
-        {
-            if (obj == null) return;
-            int id = obj.GetID();
-            if (id <= 0 || id >= _Pool.Count || _Pool[id] != obj)
-            {
-                EOHelper.LogError("Trying to return an object that does not belong to this pool.");
-                return;
-            }
-            _freeIds.Add(id);
-            _returnFunc?.Invoke(obj);// 触发returnFunc但不检查返回值，因为id是对的就一定要还
-        }
-        public T this[int idx]
-        {
-            get { return idx > 0 && idx < _Pool.Count ? _Pool[idx] : null; }
-        }
-    }
+//         }
+//         public override void Return(T obj)
+//         {
+//             if (obj == null) return;
+//             int id = obj.GetID();
+//             if (id <= 0 || id >= _Pool.Count || _Pool[id] != obj)
+//             {
+//                 EOHelper.LogError("Trying to return an object that does not belong to this pool.");
+//                 return;
+//             }
+//             _freeIds.Add(id);
+//             _returnFunc?.Invoke(obj);// 触发returnFunc但不检查返回值，因为id是对的就一定要还
+//         }
+//         public T this[int idx]
+//         {
+//             get { return idx > 0 && idx < _Pool.Count ? _Pool[idx] : null; }
+//         }
+//     }
 }
