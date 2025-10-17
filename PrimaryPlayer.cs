@@ -33,14 +33,14 @@ public class PrimaryPlayer : EventObject
         { "playerMovementComp", new PlayerMovementComp() },
         { "sfxComp", new SfxComp() },
     };
-    PrimaryPlayer(GameObject gameobject) : base(gameobject, _DataMap, true)
+    public PrimaryPlayer() : base(_DataMap, true)
     {
         this.gameobject = gameobject;
         computeCameraTexture = new RenderTexture(512, 512, 24);
         computeCameraTexture.enableRandomWrite = true;
         computeCameraTexture.Create();
     }
-    void Awake()
+    protected override void OnStart()
     {
         this.Assert(G.player == null, "PrimaryPlayer already initialized.");
         G.player = this;
@@ -57,45 +57,27 @@ public class PrimaryPlayer : EventObject
         virtualCameraTransform.SetParent(gameobject.transform);
         virtualCameraTransform.localRotation = Quaternion.Euler(0, 0, 0);
 
-
     }
 
-    void Start()
+    protected override void OnDestroy()
     {
-        stateComp.CompStart();
-        attrComp.CompStart();
-        takePhotoCameraComp.CompStart();
-        playerMovementComp.CompStart();
-        sfxComp.CompStart();
-
-        EnterTakePhotoMode();
-
-    }
-
-    void OnDestroy()
-    {
-        stateComp.CompDestroy();
-        attrComp.CompDestroy();
-        takePhotoCameraComp.CompDestroy();
-        playerMovementComp.CompDestroy();
-        sfxComp.CompDestroy();
         G.player = null;
     }
 
     // Update is called once per frame
-    void Update()
+    public override void Update()
     {
         sfxComp.RefreshSfxParams_Update();
         
     }
 
-    void LateUpdate()
+    public override void LateUpdate()
     {
         takePhotoCameraComp.LateUpdate_TryAutoFocus();
         UpdateRenderCameraData(Time.deltaTime);
     }
 
-    void FixedUpdate()
+    public override void FixedUpdate()
     {
         playerMovementComp.FixedUpdate_Movement();
     }
@@ -103,9 +85,9 @@ public class PrimaryPlayer : EventObject
     private void EnterTakePhotoMode()
     {
         // G.UI.InstantiatePanel("PanelTakePhotoScreenOutput");
-        // G.UI.EnsurePanel<PanelTakePhotoMain>("PanelTakePhotoMain");
-        // takePhotoVirtualCameraObject.SetActive(true);
-        // takePhotoCameraObject.SetActive(true);
+        G.UI.EnsurePanel<PanelTakePhotoMain>("PanelTakePhotoMain");
+        takePhotoVirtualCamera.gameObject.SetActive(true);
+        takePhotoCameraMono.gameObject.SetActive(true);
     }
     public void SetExposureMainParams(float shutterSpeed, float aperture, int iso)
     {

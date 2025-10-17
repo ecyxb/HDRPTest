@@ -11,6 +11,7 @@ public class GameManager : MonoBehaviour
     public Timer Timer { get; private set; } = new Timer();
 
     public UnityEngine.Rendering.Volume[] allVolumes;
+    private HashSet<EventObject> allEventObject = new HashSet<EventObject>();
 
     // Start is called before the first frame update
     void Awake()
@@ -24,7 +25,15 @@ public class GameManager : MonoBehaviour
     {
         GameObject playerObject = Instantiate(primaryPlayerPrefab);
         playerObject.transform.position = new Vector3(-6, 3.5f, 0); // Set initial position
+        AddEventObject<PrimaryPlayer>(playerObject);
+    }
 
+    void AddEventObject<T>(GameObject gameObject) where T : EventObject, new()
+    {
+        T e = new T();
+        allEventObject.Add(e);
+        e.BindGameObject(gameObject);
+        e.__on_start__();
     }
 
     public void EnableVolumeForCamera(GameObject camera, string[] volumeNames, bool reset = false)
@@ -79,15 +88,38 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
+
+        foreach (var e in allEventObject)
+        {
+            if (e.NeedUpdate)
+            {
+                e.Update();
+            }
+        }
         Timer.Update();
     }
 
     void FixedUpdate()
     {
+
+        foreach (var e in allEventObject)
+        {
+            if (e.NeedFixedUpdate)
+            {
+                e.FixedUpdate();
+            }
+        }
         Timer.FixedUpdate();
     }
     void LateUpdate()
     {
+        foreach (var e in allEventObject)
+        {
+            if (e.NeedLateUpdate)
+            {
+                e.LateUpdate();
+            }
+        }
         Timer.LateUpdate();
     }
 
@@ -95,6 +127,10 @@ public class GameManager : MonoBehaviour
     {
         cameraTargetMonos.Clear();
         G.gameManager = null;
+        foreach (var e in allEventObject)
+        {
+            e.__on_destroy__();
+        }
     }
 
     public void RegisterCameraTarget(CameraTargetMono cameraTargetMono)

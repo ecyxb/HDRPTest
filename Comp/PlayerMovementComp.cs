@@ -36,8 +36,7 @@ public class PlayerMovementComp : EventCompBase
     // Start is called before the first frame update
     public PlayerMovementComp() : base(slotMap)
     {
-        _controller = m_player.GetComponent<CharacterController>();
-        ResetPosition(new Vector3(-5, 4, 0));
+
 
     }
     public void SetMoveVector(Vector2 moveVector)
@@ -48,6 +47,8 @@ public class PlayerMovementComp : EventCompBase
     public override void CompStart()
     {
         base.CompStart();
+        _controller = m_player.GetComponent<CharacterController>();
+        ResetPosition(new Vector3(-5, 4, 0));
         G.InputMgr.RegisterInput("Move", InputEventType.Actived | InputEventType.Deactivated, OnMove, m_player.gameobject);
         G.InputMgr.RegisterInput("Sprint", InputEventType.Deactivated | InputEventType.Started, OnSprint, m_player.gameobject);
         G.InputMgr.RegisterInput("Look", InputEventType.Actived | InputEventType.Deactivated, OnLook, m_player.gameobject);

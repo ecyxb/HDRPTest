@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Unity.VisualScripting;
 using UnityEditor.SceneManagement;
@@ -398,39 +399,88 @@ namespace EventFramework
 #endif
         };
 
-        protected bool m_fixedSlot = true;
+        protected bool m_fixedSlot = false;
         protected Dictionary<string, UnionInt64> m_data = null;
         public bool IsValid => m_data != null;
         public CustomDictionary()
         {
             // m_data为Null，表示未初始化，不占用额外的空间
-            m_fixedSlot = false;
             CustomDictionaryMgr.Instance.GenIdForCustomDictionary(this, SetID);
+            m_fixedSlot = false;
         }
         public CustomDictionary(Dictionary<string, UnionInt64> data, bool fixedSlot = true)
         {
-            m_data = new Dictionary<string, UnionInt64>(data);
-            m_fixedSlot = fixedSlot;
             CustomDictionaryMgr.Instance.GenIdForCustomDictionary(this, SetID);
+            m_data = new Dictionary<string, UnionInt64>();
+            foreach (var kvp in data)
+            {
+                m_data[kvp.Key] = SetAsParent(kvp.Value);
+            }
+            m_fixedSlot = fixedSlot;
+            
         }
         public CustomDictionary(Dictionary<string, byte> slots, bool fixedSlot = true)
         {
+
+            CustomDictionaryMgr.Instance.GenIdForCustomDictionary(this, SetID);
             m_data = new Dictionary<string, UnionInt64>();
             foreach (var slot in slots)
             {
                 m_data[slot.Key] = UnionInt64.GetDefault(slot.Value);
             }
             m_fixedSlot = fixedSlot;
-            CustomDictionaryMgr.Instance.GenIdForCustomDictionary(this, SetID);
         }
 
         public Dictionary<string, List<ValueTuple<DelegateArgType, Delegate>>> __prop_event_dic__ = new Dictionary<string, List<ValueTuple<DelegateArgType, Delegate>>>();
+
+        private UnionInt64 SetAsParent(UnionInt64 value)
+        {
+            if (value.type == UnionInt64.CDICT)
+            {
+                CustomDictionary cdict = (CustomDictionary)value;
+                if (cdict != null)
+                {
+                    cdict.SetParentID(__with_parent_pool_id__);
+                    value = (UnionInt64)cdict;
+                }
+                else
+                {
+                    value = UnionInt64.GetDefault(value.type);
+                }
+            }
+            return value;
+        }
+        private UnionInt64 SetAsParent(UnionInt64 value, UnionInt64 oldValue)
+        {
+            if (value.type == UnionInt64.CDICT)
+            {
+                ((CustomDictionary)oldValue)?.SetParentID(0);
+                CustomDictionary cdict = (CustomDictionary)value;
+                if (cdict != null)
+                {
+                    cdict.SetParentID(__with_parent_pool_id__);
+                    value = (UnionInt64)cdict;
+                }
+                else
+                {
+                    value = UnionInt64.GetDefault(value.type);
+                }
+                
+            }
+            return value;
+        }
 
         protected UnionInt64 this[string fieldName]
         {
             get => m_data[fieldName];
             set
             {
+                if (value.type == UnionInt64.CDICT && (int)((ulong)value.data >> 32) != 0)
+                {
+                    EOHelper.LogError("This CustomDictionary already has a parent.");
+                    return;
+                }
+
                 if (!m_data.TryGetValue(fieldName, out UnionInt64 oldValue))
                 {
                     if (m_fixedSlot)
@@ -438,7 +488,7 @@ namespace EventFramework
                         EOHelper.LogError($"Field '{fieldName}' does not exist in fixed slot dictionary.");
                         return;
                     }
-                    m_data[fieldName] = value;
+                    m_data[fieldName] = SetAsParent(value);
                     return; //新加字段不触发事件
                 }
                 else
@@ -451,30 +501,7 @@ namespace EventFramework
                     }
                     if (oldValue.data == value.data)
                         return;
-                    if (value.type == UnionInt64.CDICT)
-                    {
-                        if (value.data != 0)
-                        {
-                            int newDictOldParentId = (int)((ulong)value.data >> 32);
-                            if (newDictOldParentId != 0 && newDictOldParentId != GetID())
-                            {
-                                EOHelper.LogError("This CustomDictionary already has a parent.");
-                                return;
-                            }
-                        }
-                        ((CustomDictionary)oldValue)?.SetParentID(0);
-                        CustomDictionary cdict = (CustomDictionary)value;
-                        if (cdict == null)
-                        {
-                            value = UnionInt64.GetDefault(value.type);
-                        }
-                        else
-                        {
-                            cdict.SetParentID(__with_parent_pool_id__);
-                            value = (UnionInt64)cdict;
-                        }
-                    }
-                    m_data[fieldName] = value;
+                    m_data[fieldName] = SetAsParent(value, oldValue);
                 }
 
                 if (!__prop_event_dic__.TryGetValue(fieldName, out var existingDelegate) || existingDelegate == null)
@@ -793,15 +820,20 @@ namespace EventFramework
     }
     public class EventObject : WithEventCustomDictionary
     {
+        public bool NeedUpdate { get; set; } = false;
+        public bool NeedFixedUpdate { get; set; } = false;
+        public bool NeedLateUpdate { get; set; } = false;
         public GameObject gameobject { get; protected set; }
-        protected EventObject(GameObject gameobject, Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
-        {
-            this.gameobject = gameobject;
-        }
-        // protected EventObject(MonoBehaviour gameobject, Dictionary<string, byte> slots, bool fixedSlot = true) : base(slots, fixedSlot)
-        // {
 
-        // }
+        public void BindGameObject(GameObject go)
+        {
+            this.gameobject = go;
+        }
+        protected EventObject(Dictionary<string, UnionInt64> data, bool fixedSlot = true) : base(data, fixedSlot)
+        {
+            this.gameobject = null;
+        }
+
         public T AddComponent<T>() where T : Component
         {
             return gameobject?.AddComponent<T>();
@@ -814,6 +846,55 @@ namespace EventFramework
         public static implicit operator bool(EventObject o)
         {
             return o != null;
+        }
+        public IEnumerable<EventCompBase> AllEventComps()
+        {
+            foreach (var value in m_data.Values)
+            {
+                if (value.type == UnionInt64.CDICT)
+                {
+                    var cdict = (CustomDictionary)value;
+                    if (cdict is EventCompBase eventComp)
+                    {
+                        yield return eventComp;
+                    }
+                }
+            }
+        }
+        protected virtual void OnStart()
+        {
+        }
+        protected virtual void OnDestroy()
+        {
+        }
+        public void __on_start__()
+        {
+            OnStart();
+            foreach (var comp in AllEventComps())
+            {
+                comp.CompStart();
+            }
+        }
+        public void __on_destroy__()
+        {
+            foreach (var comp in AllEventComps())
+            {
+                comp.CompDestroy();
+            }
+            OnDestroy();
+        }
+
+        public virtual void Update()
+        {
+
+        }
+        public virtual void FixedUpdate()
+        {
+
+        }
+        public virtual void LateUpdate()
+        {
+
         }
 
     }

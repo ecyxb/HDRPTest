@@ -108,7 +108,6 @@ public class TakePhotoCameraComp : EventCompBase
     {
         InitCamera();
         ClampBlockIdx_Center += m_player.photoCalculator.ClampBlockIdx_Center;
-        // InitEvent();
     }
     public override void CompDestroy()
     {
@@ -123,12 +122,11 @@ public class TakePhotoCameraComp : EventCompBase
     public void InitCamera()
     {
         evParaValue.InitData();
-
         SetShutterSpeedIdx(evParaValue.SSValues.Length - 3);
+        
         m_player.SetExposureMainParams(ShutterSpeed, Aperture, ISO);
         RealWantBaseEV100 = ShutterApertureEV - ISOEV;
         SetExposurePriority(ExposurePriority.Aperture);
-
     }
     #endregion
 

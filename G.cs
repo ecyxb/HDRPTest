@@ -38,6 +38,7 @@ public static class ObjectExtensions
 
 public sealed class G
 {
+    public const float CLIENT_TICK_INTERVAL = 1 / 60.0f;
     public static LocalizationLanguage CurrentLanguage { get; } = LocalizationLanguage.Chinese;
     public static PrimaryPlayer player { get; set; }
     public static GameManager gameManager { get; set; }
