@@ -57,6 +57,11 @@ public class PrimaryPlayer : EventObject
         virtualCameraTransform.SetParent(gameobject.transform);
         virtualCameraTransform.localRotation = Quaternion.Euler(0, 0, 0);
 
+        NeedFixedUpdate = true;
+        NeedLateUpdate = true;
+        NeedUpdate = true;
+        EnterTakePhotoMode();
+
     }
 
     protected override void OnDestroy()

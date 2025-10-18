@@ -64,7 +64,8 @@ public struct ExposureParaValue
 
 public class TakePhotoCameraComp : EventCompBase
 {
-    PrimaryPlayer m_player => GetParentDict() as PrimaryPlayer;    private ExposureParaValue evParaValue;
+    PrimaryPlayer m_player => GetParentDict() as PrimaryPlayer;
+    private ExposureParaValue evParaValue;
     private float RealWantBaseEV100;
     private float WantBaseEV => RealWantBaseEV100 - EVCompensation + ISOEV;
     private uint focalLengthChangeTimer;
@@ -100,6 +101,7 @@ public class TakePhotoCameraComp : EventCompBase
 
     public TakePhotoCameraComp() : base(slotMap)
     {
+        evParaValue.InitData();
     }
 
     #region Init
@@ -121,9 +123,7 @@ public class TakePhotoCameraComp : EventCompBase
 
     public void InitCamera()
     {
-        evParaValue.InitData();
         SetShutterSpeedIdx(evParaValue.SSValues.Length - 3);
-        
         m_player.SetExposureMainParams(ShutterSpeed, Aperture, ISO);
         RealWantBaseEV100 = ShutterApertureEV - ISOEV;
         SetExposurePriority(ExposurePriority.Aperture);

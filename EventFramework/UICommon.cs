@@ -192,7 +192,7 @@ namespace EventFramework
             }
             catch (Exception e)
             {
-                Debug.LogError($"Error during UICommon load: {e.Message}");
+                Debug.LogError($"Error during UICommon load: {e.Message} {e.StackTrace}");
             }
         }
 
@@ -469,7 +469,7 @@ namespace EventFramework
 
                         if (!string.IsNullOrEmpty(rect.name) && shortcuts.Contains(rect.name))
                         {
-                            string relativePath = UIHelpers.GetGORelativePath(rect, uiCommon.transform, sb);
+                            string relativePath = UIHelpers.GetGORelativePath(rect, uiPrefab.transform, sb);
                             cache[rect.name] = relativePath;
                         }
 

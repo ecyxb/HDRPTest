@@ -46,7 +46,7 @@ namespace EventFramework
         /// <summary>
         /// 排序图层
         /// </summary>
-        public LayerMask sortingLayer = LayerMask.NameToLayer("UI");
+        // public LayerMask sortingLayer = LayerMask.NameToLayer("UI");
     }
 
     /// <summary>
@@ -200,7 +200,7 @@ namespace EventFramework
                     canvas.worldCamera = uiCamera;
                 }
                 canvas.sortingOrder = config.sortingOrder;
-                canvas.sortingLayerID = config.sortingLayer;
+                canvas.sortingLayerID = LayerMask.NameToLayer("UI");
                 return canvas;
             }
             catch (Exception e)
@@ -233,6 +233,10 @@ namespace EventFramework
                 {
                     _panels[panelName] = panel;
                     panel.Show();
+                }
+                else
+                {
+                    EOHelper.LogError($"Failed to create panel {panelName} of type {typeof(T).Name}");
                 }
                 return panel;
             }
