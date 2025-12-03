@@ -1,6 +1,4 @@
 
-#define EVENT_OBJ_IN_UNITY_PROJECT
-
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,7 +7,7 @@ using Unity.VisualScripting;
 using UnityEditor.SceneManagement;
 
 
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
 using UnityEngine;
 #endif
 
@@ -18,9 +16,27 @@ namespace EventFramework
 
     public static class EOHelper
     {
+        public static void Log(string message)
+        {
+#if UNITY_2017_1_OR_NEWER
+            Debug.Log(message);
+#else
+            Console.WriteLine(message);
+#endif
+        }
+
+        public static void LogWarning(string message)
+        {
+#if UNITY_2017_1_OR_NEWER
+            Debug.LogWarning(message);
+#else
+            Console.WriteLine("[Warning] " + message);
+#endif
+        }
+
         public static void LogError(string message)
         {
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
             Debug.LogError(message);
 #else
             Console.Error.WriteLine(message);
@@ -33,7 +49,7 @@ namespace EventFramework
             var attr = type.GetCustomAttribute<EventProxyAttribute>();
             if (attr == null)
             {
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
                 Debug.LogWarning($"Event Failed because the class of {type.FullName} dont has attribute EventProxyAttribute");
 #endif
                 return null;
@@ -41,7 +57,7 @@ namespace EventFramework
             var field = attr.proxyName == null ? null : type.GetField(attr.proxyName, BindingFlags.Instance | BindingFlags.FlattenHierarchy);
             if (field == null || !field.FieldType.IsAssignableFrom(typeof(IEventProxy)))
             {
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
                 Debug.LogWarning($"Event Failed because the class of {type.FullName} dont has protect/public field {attr.proxyName}");
 #endif
                 return null;
@@ -231,7 +247,7 @@ namespace EventFramework
         }
 
 
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
         public static implicit operator Vector2(UnionInt64 s)
         {
             if (s.type == FLOAT2)
@@ -276,7 +292,7 @@ namespace EventFramework
                     return (UnionInt64)0;
                 case FLOAT:
                     return (UnionInt64)(double)0;
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
                 case INT2:
                     return (UnionInt64)Vector2Int.zero;
                 case FLOAT2:
@@ -305,7 +321,7 @@ namespace EventFramework
             {
                 return (double)target;
             }
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
             if (original.type == FLOAT2 && target.type == INT2)
             {
                 return (Vector2)target;
@@ -393,7 +409,7 @@ namespace EventFramework
             { typeof(long).Name, DelegateArgType.Long },
             { typeof(ulong).Name, DelegateArgType.ULong },
             { typeof(CustomDictionary).Name, DelegateArgType.CDICT },
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
             { typeof(Vector2Int).Name, DelegateArgType.Int2 },
             { typeof(Vector2).Name, DelegateArgType.Float2 }
 #endif
@@ -517,7 +533,7 @@ namespace EventFramework
                         case DelegateArgType.Int:
                             ((Action<int, int>)dele.Item2).Invoke((int)oldValue, (int)value);
                             break;
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
                         case DelegateArgType.Float2:
                             ((Action<Vector2, Vector2>)dele.Item2).Invoke((Vector2)oldValue, (Vector2)value);
                             break;
@@ -560,7 +576,7 @@ namespace EventFramework
         {
             obj = this[fieldName];
         }
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
         public void GetValue(string fieldName, out Vector2Int obj)
         {
             obj = this[fieldName];
@@ -578,7 +594,7 @@ namespace EventFramework
         {
             this[fieldName] = (UnionInt64)obj;
         }
-#if EVENT_OBJ_IN_UNITY_PROJECT
+#if UNITY_2017_1_OR_NEWER
         public void SetValue(string fieldName, Vector2Int obj)
         {
             this[fieldName] = (UnionInt64)obj;
