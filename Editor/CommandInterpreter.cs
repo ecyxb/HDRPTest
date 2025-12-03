@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,15 +6,14 @@ using System.Linq.Expressions;
 using System.Reflection;
 
 /// <summary>
-/// Ö§³ÖÁÙÊ±±äÁ¿´æ´¢¡¢Éî²ãÒıÓÃ¡¢Î¯ÍĞµ÷ÓÃ¡¢Type¾²Ì¬³ÉÔ±·ÃÎÊµÄÃüÁî½âÊÍÆ÷
+/// æ”¯æŒä¸´æ—¶å˜é‡å­˜å‚¨ã€æ·±å±‚å¼•ç”¨ã€å§”æ‰˜è°ƒç”¨ã€Typeé™æ€æˆå‘˜è®¿é—®çš„å‘½ä»¤è§£é‡Šå™¨ï¼ˆä¿®å¤ç‰ˆï¼‰
 /// </summary>
 public class CommandInterpreter
 {
-    // ÁÙÊ±±äÁ¿´æ´¢
     private Dictionary<string, object> variables = new Dictionary<string, object>();
 
     /// <summary>
-    /// ×¢²á±äÁ¿£¨Èç player£©£¬¿ÉÓÃÓÚ³õÊ¼»¯
+    /// æ³¨å†Œå˜é‡ï¼ˆå¦‚ playerï¼‰ï¼Œå¯ç”¨äºåˆå§‹åŒ–
     /// </summary>
     public void RegisterVariable(string name, object obj)
     {
@@ -22,115 +21,261 @@ public class CommandInterpreter
     }
 
     /// <summary>
-    /// ´¦ÀíÊäÈëÃüÁî×Ö·û´®
+    /// å¤„ç†è¾“å…¥å‘½ä»¤å­—ç¬¦ä¸²
     /// </summary>
     public string Execute(string input)
     {
         input = input.Trim();
-        if (string.IsNullOrEmpty(input)) return "ÃüÁîÎª¿Õ";
+        if (string.IsNullOrEmpty(input)) return "å‘½ä»¤ä¸ºç©º";
 
-        // ¸³ÖµÓï¾ä£¨Èç var1=player.state_comp.states[0]£©
-        int assignIdx = input.IndexOf('=');
+        // ä¿®å¤ Bug #1: æ’é™¤ ==, !=, <=, >= ç­‰æ¯”è¾ƒè¿ç®—ç¬¦
+        int assignIdx = FindAssignmentOperator(input);
         if (assignIdx > 0)
         {
             string left = input.Substring(0, assignIdx).Trim();
             string right = input.Substring(assignIdx + 1).Trim();
 
-            // ÓÒ²à±í´ïÊ½ÇóÖµ
+            // å³ä¾§è¡¨è¾¾å¼æ±‚å€¼
             object value = EvaluateExpression(right);
-            if (value == null) return $"¸³ÖµÊ§°Ü: {right} ½á¹ûÎª null";
+
+            // ä¿®å¤ Bug #7: åŒºåˆ†é”™è¯¯å’Œ null å€¼
+            if (value is string error && IsErrorMessage(error))
+                return $"èµ‹å€¼å¤±è´¥: {error}";
 
             variables[left] = value;
-            return $"±äÁ¿ {left} ÒÑ¸³Öµ";
+            return $"å˜é‡ {left} å·²èµ‹å€¼ = {FormatValue(value)}";
         }
         else
         {
-            // ·Ç¸³ÖµÓï¾ä£¬±í´ïÊ½ÇóÖµ»òÎ¯ÍĞµ÷ÓÃ
+            // éèµ‹å€¼è¯­å¥ï¼Œè¡¨è¾¾å¼æ±‚å€¼æˆ–å§”æ‰˜è°ƒç”¨
             object result = EvaluateExpression(input);
-            return result != null ? $"½á¹û: {result}" : "±í´ïÊ½Ö´ĞĞÊ§°Ü";
+            if (result is string error && IsErrorMessage(error))
+                return error;
+            return result != null ? $"ç»“æœ: {FormatValue(result)}" : "è¡¨è¾¾å¼æ‰§è¡Œå¤±è´¥";
         }
     }
 
     /// <summary>
-    /// µİ¹é½âÎö²¢Ö´ĞĞ±í´ïÊ½
+    /// æŸ¥æ‰¾èµ‹å€¼è¿ç®—ç¬¦ä½ç½®ï¼Œæ’é™¤æ¯”è¾ƒè¿ç®—ç¬¦
+    /// </summary>
+    private int FindAssignmentOperator(string input)
+    {
+        int assignIdx = input.IndexOf('=');
+        if (assignIdx <= 0) return -1;
+
+        // æ’é™¤ ==, !=, <=, >=
+        if (assignIdx < input.Length - 1 && input[assignIdx + 1] == '=')
+            return -1;
+        if (assignIdx > 0 && (input[assignIdx - 1] == '!' || input[assignIdx - 1] == '<' || input[assignIdx - 1] == '>'))
+            return -1;
+
+        return assignIdx;
+    }
+
+    /// <summary>
+    /// åˆ¤æ–­æ˜¯å¦ä¸ºé”™è¯¯æ¶ˆæ¯
+    /// </summary>
+    private bool IsErrorMessage(string msg)
+    {
+        return msg.StartsWith("æœªæ‰¾åˆ°") || msg.StartsWith("ç´¢å¼•") ||
+    msg.Contains("ä¸æ˜¯å§”æ‰˜") || msg.Contains("å¤±è´¥") ||
+ msg.StartsWith("é”™è¯¯");
+    }
+
+    /// <summary>
+    /// æ ¼å¼åŒ–è¾“å‡ºå€¼
+    /// </summary>
+    private string FormatValue(object value)
+    {
+        if (value == null) return "null";
+
+        // å¤„ç†é›†åˆç±»å‹
+        if (value is IEnumerable enumerable && !(value is string))
+        {
+            var items = new List<string>();
+            int count = 0;
+            foreach (var item in enumerable)
+            {
+                if (count >= 10) break;
+                items.Add(item?.ToString() ?? "null");
+                count++;
+            }
+
+            string preview = string.Join(", ", items);
+            if (value is ICollection collection && collection.Count > 10)
+                preview += $"... (å…± {collection.Count} é¡¹)";
+
+            return $"[{preview}]";
+        }
+
+        return value.ToString();
+    }
+
+    /// <summary>
+    /// é€’å½’è§£æå¹¶æ‰§è¡Œè¡¨è¾¾å¼
     /// </summary>
     private object EvaluateExpression(string expr)
     {
         expr = expr.Trim();
 
-        // Ö§³Ö´ø²ÎÊıµÄÎ¯ÍĞµ÷ÓÃ£¬Èç func(1,2)
+        // æ”¯æŒå¸¦å‚æ•°çš„å§”æ‰˜è°ƒç”¨ï¼Œå¦‚ func(1,2)
         int callIdx = expr.IndexOf('(');
         if (callIdx > 0 && expr.EndsWith(")"))
         {
             string funcExpr = expr.Substring(0, callIdx).Trim();
             string argsExpr = expr.Substring(callIdx + 1, expr.Length - callIdx - 2);
             object funcObj = EvaluateExpression(funcExpr);
+
             if (funcObj is Delegate del)
             {
                 object[] args = ParseArguments(argsExpr);
-                return del.DynamicInvoke(args);
+                try
+                {
+                    return del.DynamicInvoke(args);
+                }
+                catch (Exception ex)
+                {
+                    return $"å§”æ‰˜è°ƒç”¨å¤±è´¥: {ex.InnerException?.Message ?? ex.Message}";
+                }
             }
             else
             {
-                return $"±í´ïÊ½ {funcExpr} ²»ÊÇÎ¯ÍĞÀàĞÍ";
+                return $"è¡¨è¾¾å¼ {funcExpr} ä¸æ˜¯å§”æ‰˜ç±»å‹";
             }
         }
 
-        // Éî²ãÒıÓÃ½âÎö£¨Èç player.state_comp.states[0]£©
+        // æ·±å±‚å¼•ç”¨è§£æï¼ˆå¦‚ player.state_comp.states[0]ï¼‰
         return ResolveDeepReference(expr);
     }
 
     /// <summary>
-    /// ½âÎö²ÎÊı×Ö·û´®Îª¶ÔÏóÊı×é
+    /// è§£æå‚æ•°å­—ç¬¦ä¸²ä¸ºå¯¹è±¡æ•°ç»„
     /// </summary>
     private object[] ParseArguments(string argsExpr)
     {
         if (string.IsNullOrWhiteSpace(argsExpr)) return new object[0];
-        var args = argsExpr.Split(',');
+
+        var args = SplitArguments(argsExpr);
         List<object> result = new List<object>();
+
         foreach (var arg in args)
         {
             string a = arg.Trim();
-            // Ö§³Ö±äÁ¿ÒıÓÃ»ò»ù±¾ÀàĞÍ
+
             if (variables.ContainsKey(a))
+            {
                 result.Add(variables[a]);
-            else if (int.TryParse(a, out int i))
-                result.Add(i);
-            else if (float.TryParse(a, out float f))
+            }
+            // ä¿®å¤ Bug #3: ä¼˜å…ˆæ£€æµ‹æµ®ç‚¹æ•°
+            else if (a.Contains(".") && float.TryParse(a, out float f))
+            {
                 result.Add(f);
+            }
+            else if (int.TryParse(a, out int i))
+            {
+                result.Add(i);
+            }
             else if (bool.TryParse(a, out bool b))
+            {
                 result.Add(b);
-            else if (a.StartsWith("\"") && a.EndsWith("\""))
+            }
+            else if (a.StartsWith("\"") && a.EndsWith("\"") && a.Length >= 2)
+            {
                 result.Add(a.Substring(1, a.Length - 2));
+            }
             else
-                result.Add(a); // Ä¬ÈÏ×Ö·û´®
+            {
+                // å°è¯•ä½œä¸ºè¡¨è¾¾å¼æ±‚å€¼
+                var value = EvaluateExpression(a);
+                if (value is string error && IsErrorMessage(error))
+                    result.Add(a); // å¦‚æœæ±‚å€¼å¤±è´¥ï¼Œä½œä¸ºå­—ç¬¦ä¸²
+                else
+                    result.Add(value);
+            }
         }
+
         return result.ToArray();
     }
 
     /// <summary>
-    /// µİ¹é½âÎöÉî²ãÒıÓÃ±í´ïÊ½
+    /// æ™ºèƒ½åˆ†å‰²å‚æ•°ï¼ˆè€ƒè™‘æ‹¬å·åµŒå¥—ï¼‰
+    /// </summary>
+    private string[] SplitArguments(string argsExpr)
+    {
+        List<string> args = new List<string>();
+        int depth = 0;
+        int start = 0;
+
+        for (int i = 0; i < argsExpr.Length; i++)
+        {
+            char c = argsExpr[i];
+
+            if (c == '(' || c == '[')
+                depth++;
+            else if (c == ')' || c == ']')
+                depth--;
+            else if (c == ',' && depth == 0)
+            {
+                args.Add(argsExpr.Substring(start, i - start));
+                start = i + 1;
+            }
+        }
+
+        if (start < argsExpr.Length)
+            args.Add(argsExpr.Substring(start));
+
+        return args.ToArray();
+    }
+
+    /// <summary>
+    /// é€’å½’è§£ææ·±å±‚å¼•ç”¨è¡¨è¾¾å¼
     /// </summary>
     private object ResolveDeepReference(string expr)
     {
-        // Ö§³ÖÊı×é/ÁĞ±íË÷Òı£¬Èç states[0]
-        int bracketIdx = expr.IndexOf('[');
+        // ä¿®å¤ Bug #2: æ•°ç»„ç´¢å¼•è¶Šç•Œæ£€æŸ¥
+        int bracketIdx = FindBracketIndex(expr);
         if (bracketIdx > 0 && expr.EndsWith("]"))
         {
             string before = expr.Substring(0, bracketIdx);
             string indexStr = expr.Substring(bracketIdx + 1, expr.Length - bracketIdx - 2);
             object container = ResolveDeepReference(before);
-            int idx = int.TryParse(indexStr, out int i) ? i : 0;
-            if (container is IList list && idx < list.Count)
+
+            // æ”¯æŒå˜é‡ç´¢å¼•
+            object indexObj = EvaluateExpression(indexStr);
+
+            if (!(indexObj is int idx))
+            {
+                if (!int.TryParse(indexStr, out idx))
+                {
+                    return $"ç´¢å¼•æ ¼å¼é”™è¯¯: [{indexStr}]";
+                }
+            }
+
+            if (container is IList list)
+            {
+                if (idx < 0 || idx >= list.Count)
+                {
+                    return $"ç´¢å¼•è¶Šç•Œ: [{idx}] (é•¿åº¦={list.Count})";
+                }
                 return list[idx];
-            return $"Ë÷Òı·ÃÎÊÊ§°Ü: {expr}";
+            }
+
+            // æ”¯æŒå­—å…¸ç´¢å¼•
+            if (container is IDictionary dict)
+            {
+                if (dict.Contains(indexObj))
+                    return dict[indexObj];
+                return $"å­—å…¸ä¸­ä¸å­˜åœ¨é”®: {indexObj}";
+            }
+
+            return $"ç´¢å¼•è®¿é—®å¤±è´¥: {expr} ä¸æ˜¯å¯ç´¢å¼•ç±»å‹";
         }
 
-        // °´µã·Ö¸î£¬Öğ²ã½âÎö
-        var parts = expr.Split('.');
+        // æŒ‰ç‚¹åˆ†å‰²ï¼Œé€å±‚è§£æ
+        var parts = SplitByDot(expr);
         object current = null;
 
-        // µÚÒ»²ã£º±äÁ¿»òÀàĞÍ
+        // ç¬¬ä¸€å±‚ï¼šå˜é‡æˆ–ç±»å‹
         string first = parts[0];
         if (variables.ContainsKey(first))
         {
@@ -138,90 +283,228 @@ public class CommandInterpreter
         }
         else
         {
-            // TypeÀàĞÍÖ§³Ö¾²Ì¬³ÉÔ±·ÃÎÊ
-            //Type type = Type.GetType(first);
-            //if (type != null)
-            //    current = type;
-            //else
-            //    return $"Î´ÕÒµ½±äÁ¿»òÀàĞÍ: {first}";
-            Type type = Type.GetType(first);
-            if (type == null)
-            {
-                type = AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a => a.GetTypes())
-                    .FirstOrDefault(t => t.Name == first || t.FullName == first);
-            }
+            // Typeç±»å‹æ”¯æŒé™æ€æˆå‘˜è®¿é—®
+            Type type = FindType(first);
             if (type != null)
                 current = type;
             else
-                return $"Î´ÕÒµ½±äÁ¿»òÀàĞÍ: {first}";
+                return $"æœªæ‰¾åˆ°å˜é‡æˆ–ç±»å‹: {first}";
         }
 
-        // ºóĞø²ã£º×Ö¶Î/ÊôĞÔ/·½·¨
+        // åç»­å±‚ï¼šå­—æ®µ/å±æ€§/æ–¹æ³•
         for (int i = 1; i < parts.Length; i++)
         {
             string part = parts[i];
 
-            // TypeÀàĞÍ¾²Ì¬³ÉÔ±
+            // Typeç±»å‹é™æ€æˆå‘˜
             if (current is Type t)
             {
-                // ¾²Ì¬ÊôĞÔ/×Ö¶Î
-                var prop = t.GetProperty(part, BindingFlags.Static | BindingFlags.Public);
-                if (prop != null)
-                {
-                    current = prop.GetValue(null);
-                    continue;
-                }
-                var field = t.GetField(part, BindingFlags.Static | BindingFlags.Public);
-                if (field != null)
-                {
-                    current = field.GetValue(null);
-                    continue;
-                }
-                // ¾²Ì¬·½·¨£¨·µ»ØÎ¯ÍĞ£©
-                var method = t.GetMethod(part, BindingFlags.Static | BindingFlags.Public);
-                if (method != null)
-                {
-                    //current = Delegate.CreateDelegate(Expression.GetDelegateType(
-                    //    Array.ConvertAll(method.GetParameters(), p => p.ParameterType)
-                    //    .Concat(new[] { method.ReturnType }).ToArray()), method);
-                    //continue;
-                    // ×Ô¶¯ÍÆ¶ÏÎ¯ÍĞÀàĞÍ
-                    var paramTypes = method.GetParameters().Select(p => p.ParameterType).ToList();
-                    paramTypes.Add(method.ReturnType);
-                    var delegateType = Expression.GetDelegateType(paramTypes.ToArray());
-                    current = Delegate.CreateDelegate(delegateType, method);
-                    continue;
-                }
-                return $"Î´ÕÒµ½ÀàĞÍ¾²Ì¬³ÉÔ±: {part}";
+                current = ResolveStaticMember(t, part);
+                if (current is string error && IsErrorMessage(error))
+                    return error;
             }
             else
             {
-                // ÊµÀıÊôĞÔ/×Ö¶Î/·½·¨
-                var type = current.GetType();
-                var prop = type.GetProperty(part, BindingFlags.Instance | BindingFlags.Public);
-                if (prop != null)
-                {
-                    current = prop.GetValue(current);
-                    continue;
-                }
-                var field = type.GetField(part, BindingFlags.Instance | BindingFlags.Public);
-                if (field != null)
-                {
-                    current = field.GetValue(current);
-                    continue;
-                }
-                var method = type.GetMethod(part, BindingFlags.Instance | BindingFlags.Public);
-                if (method != null)
-                {
-                    current = Delegate.CreateDelegate(Expression.GetDelegateType(
-                        Array.ConvertAll(method.GetParameters(), p => p.ParameterType)
-                        .Concat(new[] { method.ReturnType }).ToArray()), current, method.Name);
-                    continue;
-                }
-                return $"Î´ÕÒµ½³ÉÔ±: {part}";
+                current = ResolveInstanceMember(current, part);
+                if (current is string error && IsErrorMessage(error))
+                    return error;
             }
         }
+
         return current;
+    }
+
+    /// <summary>
+    /// æŸ¥æ‰¾æ–¹æ‹¬å·ç´¢å¼•ä½ç½®ï¼ˆä¸åœ¨å­—ç¬¦ä¸²å†…ï¼‰
+    /// </summary>
+    private int FindBracketIndex(string expr)
+    {
+        bool inString = false;
+        for (int i = 0; i < expr.Length; i++)
+        {
+            if (expr[i] == '"')
+                inString = !inString;
+            else if (expr[i] == '[' && !inString)
+                return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// æŒ‰ç‚¹åˆ†å‰²è¡¨è¾¾å¼ï¼ˆä¸åˆ†å‰²å­—ç¬¦ä¸²å’Œæ–¹æ³•è°ƒç”¨å†…çš„ç‚¹ï¼‰
+    /// </summary>
+    private string[] SplitByDot(string expr)
+    {
+        List<string> parts = new List<string>();
+        int depth = 0;
+        int start = 0;
+        bool inString = false;
+
+        for (int i = 0; i < expr.Length; i++)
+        {
+            char c = expr[i];
+
+            if (c == '"')
+                inString = !inString;
+            else if (!inString)
+            {
+                if (c == '(' || c == '[')
+                    depth++;
+                else if (c == ')' || c == ']')
+                    depth--;
+                else if (c == '.' && depth == 0)
+                {
+                    parts.Add(expr.Substring(start, i - start));
+                    start = i + 1;
+                }
+            }
+        }
+
+        if (start < expr.Length)
+            parts.Add(expr.Substring(start));
+
+        return parts.ToArray();
+    }
+
+    /// <summary>
+    /// æŸ¥æ‰¾ç±»å‹ï¼ˆæ”¯æŒç®€å•åç§°å’Œå®Œå…¨é™å®šåç§°ï¼‰
+    /// </summary>
+    private Type FindType(string typeName)
+    {
+        Type type = Type.GetType(typeName);
+        if (type != null) return type;
+
+        // åœ¨æ‰€æœ‰ç¨‹åºé›†ä¸­æŸ¥æ‰¾
+        type = AppDomain.CurrentDomain.GetAssemblies()
+               .SelectMany(a => {
+                   try { return a.GetTypes(); }
+                   catch { return new Type[0]; }
+               })
+               .FirstOrDefault(t => t.Name == typeName || t.FullName == typeName);
+
+        return type;
+    }
+
+    /// <summary>
+    /// è§£æé™æ€æˆå‘˜
+    /// </summary>
+    private object ResolveStaticMember(Type t, string memberName)
+    {
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.Public;
+
+        // é™æ€å±æ€§
+        var prop = t.GetProperty(memberName, flags);
+        if (prop != null)
+            return prop.GetValue(null);
+
+        // é™æ€å­—æ®µ
+        var field = t.GetField(memberName, flags);
+        if (field != null)
+            return field.GetValue(null);
+
+        // é™æ€æ–¹æ³•ï¼ˆè¿”å›å§”æ‰˜ï¼‰
+        var method = t.GetMethod(memberName, flags);
+        if (method != null)
+        {
+            return CreateDelegate(method, null);
+        }
+
+        return $"æœªæ‰¾åˆ°ç±»å‹é™æ€æˆå‘˜: {t.Name}.{memberName}";
+    }
+
+    /// <summary>
+    /// è§£æå®ä¾‹æˆå‘˜
+    /// </summary>
+    private object ResolveInstanceMember(object obj, string memberName)
+    {
+        if (obj == null)
+            return "å°è¯•è®¿é—® null å¯¹è±¡çš„æˆå‘˜";
+
+        Type type = obj.GetType();
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
+
+        // å®ä¾‹å±æ€§
+        var prop = type.GetProperty(memberName, flags);
+        if (prop != null)
+        {
+            try
+            {
+                return prop.GetValue(obj);
+            }
+            catch (Exception ex)
+            {
+                return $"å±æ€§è®¿é—®å¤±è´¥: {ex.Message}";
+            }
+        }
+
+        // å®ä¾‹å­—æ®µ
+        var field = type.GetField(memberName, flags);
+        if (field != null)
+        {
+            try
+            {
+                return field.GetValue(obj);
+            }
+            catch (Exception ex)
+            {
+                return $"å­—æ®µè®¿é—®å¤±è´¥: {ex.Message}";
+            }
+        }
+
+        // å®ä¾‹æ–¹æ³•ï¼ˆè¿”å›å§”æ‰˜ï¼‰
+        var method = type.GetMethod(memberName, flags);
+        if (method != null)
+        {
+            return CreateDelegate(method, obj);
+        }
+
+        return $"æœªæ‰¾åˆ°æˆå‘˜: {type.Name}.{memberName}";
+    }
+
+    /// <summary>
+    /// åˆ›å»ºæ–¹æ³•å§”æ‰˜
+    /// </summary>
+    private Delegate CreateDelegate(MethodInfo method, object target)
+    {
+        try
+        {
+            var paramTypes = method.GetParameters().Select(p => p.ParameterType).ToList();
+            paramTypes.Add(method.ReturnType);
+            var delegateType = Expression.GetDelegateType(paramTypes.ToArray());
+
+            // ä¿®å¤ Bug #6: ç›´æ¥ä¼ é€’ MethodInfo
+            if (target == null)
+                return Delegate.CreateDelegate(delegateType, method);
+            else
+                return Delegate.CreateDelegate(delegateType, target, method);
+        }
+        catch (Exception ex)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// è·å–æ‰€æœ‰å·²æ³¨å†Œçš„å˜é‡å
+    /// </summary>
+    public IEnumerable<string> GetVariableNames()
+    {
+        return variables.Keys;
+    }
+
+    /// <summary>
+    /// è·å–å˜é‡å€¼
+    /// </summary>
+    public object GetVariable(string name)
+    {
+        return variables.ContainsKey(name) ? variables[name] : null;
+    }
+
+    /// <summary>
+    /// æ¸…ç©ºæ‰€æœ‰å˜é‡
+    /// </summary>
+    public void ClearVariables()
+    {
+        variables.Clear();
     }
 }
