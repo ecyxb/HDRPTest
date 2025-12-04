@@ -1,7 +1,18 @@
 # CommandInterpreter 命令解释器文档
 
 ## 概述
-CommandInterpreter 是一个运行时命令解释器，支持变量存储、表达式求值、方法调用等功能。
+CommandInterpreter 是一个运行时命令解释器，支持变量存储、表达式求值、方法调用等功能。支持本地执行和远程广播到逻辑线程执行。
+
+---
+
+## 🗂️ 文件结构
+
+| 文件 | 说明 |
+|------|------|
+| `CommandInterpreter.cs` | 核心解释器，负责解析和执行命令 |
+| `CommandInterpreterWindow.cs` | Unity 编辑器窗口 GUI |
+| `CommandInterpreterProxy.cs` | UDP 接收代理，用于逻辑线程接收远程命令 |
+| `CommandInterpreterTests.cs` | 单元测试 |
 
 ---
 
@@ -168,6 +179,50 @@ Mathf.Max(a + b, c * 2)                    // 方法参数中使用运算符
 list[Mathf.Min(i, list.Count - 1)]         // 索引中使用方法调用
 obj.transform.position.magnitude           // 深层链式访问
 new Vector3(Mathf.Sin(t), 0, Mathf.Cos(t)) // 构造函数参数中调用方法
+```
+
+### 19. 链式方法调用
+```csharp
+str.Trim().ToLower()                       // 字符串方法链
+str.Trim().ToUpper().Substring(0, 3)       // 多级方法链
+list[0].ToString().ToLower()               // 索引后链式调用
+```
+
+### 20. 数组元素成员访问
+```csharp
+vectors[0].x                               // 访问数组元素的成员
+list[0].transform.position                 // 索引后深层访问
+arr[i].Method()                            // 数组元素方法调用
+```
+
+---
+
+## 🌐 远程命令（UDP 广播）
+
+### 基本用法
+```csharp
+@command                    // 以 @ 开头的命令会广播到逻辑线程
+@player.health = 100        // 远程设置玩家血量
+@gameManager.Pause()        // 远程调用方法
+```
+
+### 通信协议
+- **端口**: 11451
+- **数据格式**: `[4字节帧号(int)] + [命令字符串(UTF8)]`
+- **帧号**: 0 表示立即执行，>0 表示在指定逻辑帧执行
+
+### CommandInterpreterProxy 使用
+```csharp
+// 在逻辑线程初始化
+var proxy = new CommandInterpreterProxy();
+proxy.RegisterVariable("player", playerInstance);
+proxy.Start();
+
+// 每帧调用（在逻辑线程）
+proxy.ProcessPendingCommands(currentLogicFrame);
+
+// 关闭时
+proxy.Dispose();
 ```
 
 ---

@@ -1,6 +1,9 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 
 namespace EventFramework.Editor
 {
@@ -17,7 +20,9 @@ namespace EventFramework.Editor
         private int historyIndex = -1;
         private Vector2 outputScrollPos;
         private Vector2 variablesScrollPos;
+        private Vector2 helpScrollPos;
         private bool showVariables = true;
+        private bool showHelp = true;
         private bool needFocusInput = false;
         
         // 单例实例（静态）
@@ -25,6 +30,13 @@ namespace EventFramework.Editor
         
         // 缓存的背景纹理
         private Texture2D outputBackgroundTex;
+        
+        // UDP 广播配置
+        private const int UDP_BROADCAST_PORT = 11451;
+        private UdpClient udpClient;
+        
+        // 广播帧号（用于指定命令在哪个逻辑帧执行）
+        public int broadcastTargetFrame = 0;
 
         [MenuItem("Tools/命令解释器 %#T")]
         public static void ShowWindow()
@@ -53,6 +65,13 @@ namespace EventFramework.Editor
             Instance = null;
             // 取消监听
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            
+            // 清理 UDP 客户端
+            if (udpClient != null)
+            {
+                udpClient.Close();
+                udpClient = null;
+            }
         }
 
         private void OnPlayModeStateChanged(PlayModeStateChange state)
@@ -123,7 +142,13 @@ namespace EventFramework.Editor
                 DrawVariablesPanel();
             }
 
-            EditorGUILayout.EndHorizontal();
+            // 最右侧：帮助文档面板
+            if (showHelp)
+            {
+                DrawHelpPanel();
+            }
+
+            EditorGUILayout.EndHorizontal();;
 
             EditorGUILayout.EndVertical();
         }
@@ -155,6 +180,7 @@ namespace EventFramework.Editor
             GUILayout.FlexibleSpace();
 
             showVariables = GUILayout.Toggle(showVariables, "显示变量", EditorStyles.toolbarButton, GUILayout.Width(60));
+            showHelp = GUILayout.Toggle(showHelp, "帮助", EditorStyles.toolbarButton, GUILayout.Width(40));
 
             EditorGUILayout.EndHorizontal();
         }
@@ -268,7 +294,8 @@ namespace EventFramework.Editor
 
             // 帮助提示
             EditorGUILayout.HelpBox(
-                "支持: 变量赋值(x = expr), 属性访问(obj.prop), 索引(list[0]), 方法调用(obj.Method(args))",
+                "本地执行: 变量赋值(x = expr), 属性访问(obj.prop), 索引(list[0]), 方法调用(obj.Method(args))\n" +
+                "远程执行: @command 广播命令到逻辑线程 (UDP 127.0.0.1:11451)",
                 MessageType.Info);
         }
 
@@ -343,6 +370,87 @@ namespace EventFramework.Editor
             EditorGUILayout.EndVertical();
         }
 
+        private void DrawHelpPanel()
+        {
+            EditorGUILayout.BeginVertical(GUILayout.Width(220));
+
+            EditorGUILayout.LabelField("帮助文档", EditorStyles.boldLabel);
+
+            helpScrollPos = EditorGUILayout.BeginScrollView(helpScrollPos, GUILayout.ExpandHeight(true));
+
+            // 帮助文档样式
+            GUIStyle helpStyle = new GUIStyle(EditorStyles.label)
+            {
+                wordWrap = true,
+                richText = true,
+                fontSize = 11
+            };
+
+            GUIStyle headerStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 12
+            };
+
+            // === 内置预设变量 ===
+            EditorGUILayout.LabelField("内置预设变量", headerStyle);
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.LabelField("<color=#88ff88>#sel</color> - 当前选中的 GameObject", helpStyle);
+            EditorGUILayout.LabelField("<color=#88ff88>#time</color> - Time.time", helpStyle);
+            EditorGUILayout.LabelField("<color=#88ff88>#dt</color> - Time.deltaTime", helpStyle);
+            EditorGUILayout.LabelField("<color=#88ff88>#cam</color> - Camera.main", helpStyle);
+            EditorGUILayout.LabelField("<color=#88ff88>#typeof(obj)</color> - 获取类型信息", helpStyle);
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space();
+
+            // === 基本语法 ===
+            EditorGUILayout.LabelField("基本语法", headerStyle);
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.LabelField("<color=#ffff88>x = 表达式</color> - 变量赋值", helpStyle);
+            EditorGUILayout.LabelField("<color=#ffff88>obj.property</color> - 属性访问", helpStyle);
+            EditorGUILayout.LabelField("<color=#ffff88>obj.Method(args)</color> - 方法调用", helpStyle);
+            EditorGUILayout.LabelField("<color=#ffff88>list[0]</color> - 索引访问", helpStyle);
+            EditorGUILayout.LabelField("<color=#ffff88>obj.a.b.c</color> - 链式访问", helpStyle);
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space();
+
+            // === 运算符 ===
+            EditorGUILayout.LabelField("运算符", headerStyle);
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.LabelField("<color=#88ffff>+ - * / %</color> - 算术运算", helpStyle);
+            EditorGUILayout.LabelField("<color=#88ffff>== != < > <= >=</color> - 比较", helpStyle);
+            EditorGUILayout.LabelField("<color=#88ffff>&& || !</color> - 逻辑运算", helpStyle);
+            EditorGUILayout.LabelField("<color=#88ffff>? :</color> - 三元表达式", helpStyle);
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space();
+
+            // === 远程命令 ===
+            EditorGUILayout.LabelField("远程命令", headerStyle);
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.LabelField("<color=#ff88ff>@command</color> - 广播到逻辑线程", helpStyle);
+            EditorGUILayout.LabelField($"UDP 端口: {UDP_BROADCAST_PORT}", helpStyle);
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space();
+
+            // === 示例 ===
+            EditorGUILayout.LabelField("示例", headerStyle);
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.LabelField("<color=#aaaaaa>#sel.name</color>", helpStyle);
+            EditorGUILayout.LabelField("<color=#aaaaaa>#sel.transform.position</color>", helpStyle);
+            EditorGUILayout.LabelField("<color=#aaaaaa>pos = #sel.transform.position</color>", helpStyle);
+            EditorGUILayout.LabelField("<color=#aaaaaa>pos.x + 1</color>", helpStyle);
+            EditorGUILayout.LabelField("<color=#aaaaaa>#cam.fieldOfView = 60</color>", helpStyle);
+            EditorGUILayout.LabelField("<color=#aaaaaa>\"hello\".ToUpper()</color>", helpStyle);
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.EndScrollView();
+
+            EditorGUILayout.EndVertical();
+        }
+
         private void ExecuteCommand()
         {
             if (string.IsNullOrWhiteSpace(inputCommand)) return;
@@ -356,21 +464,30 @@ namespace EventFramework.Editor
             // 显示输入命令
             AddOutput($"<color=cyan>> {cmd}</color>");
 
-            // 执行命令
-            string result = interpreter.Execute(cmd);
-
-            // 显示结果（根据内容着色）
-            if (result.Contains("失败") || result.Contains("错误") || result.StartsWith("未找到"))
+            // 检查是否是广播命令（以 @ 开头）
+            if (cmd.StartsWith("@"))
             {
-                AddOutput($"<color=red>{result}</color>");
-            }
-            else if (result.Contains("已赋值"))
-            {
-                AddOutput($"<color=green>{result}</color>");
+                string broadcastCmd = cmd.Substring(1); // 去掉 @ 前缀
+                BroadcastToLogicThread(broadcastCmd, broadcastTargetFrame);
             }
             else
             {
-                AddOutput($"<color=white>{result}</color>");
+                // 本地执行命令
+                string result = interpreter.Execute(cmd);
+
+                // 显示结果（根据内容着色）
+                if (result.StartsWith("Error:"))
+                {
+                    AddOutput($"<color=red>{result}</color>");
+                }
+                else if (result.Contains("已赋值"))
+                {
+                    AddOutput($"<color=green>{result}</color>");
+                }
+                else
+                {
+                    AddOutput($"<color=white>{result}</color>");
+                }
             }
 
             // 清空输入
@@ -380,6 +497,40 @@ namespace EventFramework.Editor
             outputScrollPos = new Vector2(0, float.MaxValue);
 
             Repaint();
+        }
+
+        /// <summary>
+        /// 通过 UDP 广播命令到逻辑线程
+        /// </summary>
+        /// <param name="command">命令内容</param>
+        /// <param name="targetFrame">目标执行帧号</param>
+        private void BroadcastToLogicThread(string command, int targetFrame)
+        {
+            try
+            {
+                if (udpClient == null)
+                {
+                    udpClient = new UdpClient();
+                }
+
+                // 构造数据：前4字节为帧号(int)，后续为命令字符串(UTF8)
+                byte[] frameBytes = System.BitConverter.GetBytes(targetFrame);
+                byte[] commandBytes = Encoding.UTF8.GetBytes(command);
+                byte[] data = new byte[frameBytes.Length + commandBytes.Length];
+                System.Buffer.BlockCopy(frameBytes, 0, data, 0, frameBytes.Length);
+                System.Buffer.BlockCopy(commandBytes, 0, data, frameBytes.Length, commandBytes.Length);
+                
+                IPEndPoint endPoint = new IPEndPoint(IPAddress.Loopback, UDP_BROADCAST_PORT);
+                
+                udpClient.Send(data, data.Length, endPoint);
+
+                string frameInfo = $"(帧:{targetFrame})";
+                AddOutput($"<color=yellow>[UDP] 已发送到 127.0.0.1:{UDP_BROADCAST_PORT} {frameInfo}: {command}</color>");
+            }
+            catch (System.Exception ex)
+            {
+                AddOutput($"<color=red>[UDP] 发送失败: {ex.Message}</color>");
+            }
         }
 
         private void AddOutput(string line)
