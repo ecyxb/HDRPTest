@@ -19,6 +19,12 @@ namespace EventFramework.Editor
         private Vector2 variablesScrollPos;
         private bool showVariables = true;
         private bool needFocusInput = false;
+        
+        // 单例实例（静态）
+        public static CommandInterpreterWindow Instance { get; private set; }
+        
+        // 缓存的背景纹理
+        private Texture2D outputBackgroundTex;
 
         [MenuItem("Tools/命令解释器 %#T")]
         public static void ShowWindow()
@@ -29,6 +35,7 @@ namespace EventFramework.Editor
 
         private void OnEnable()
         {
+            Instance = this;
             interpreter = new CommandInterpreter();
 
             // 注册预设变量（只读，动态计算）
@@ -43,6 +50,7 @@ namespace EventFramework.Editor
 
         private void OnDisable()
         {
+            Instance = null;
             // 取消监听
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         }
@@ -78,6 +86,10 @@ namespace EventFramework.Editor
                 var type = obj.GetType();
                 return $"{type.FullName} (Assembly: {type.Assembly.GetName().Name})";
             }));
+        }
+        public void RegisterPresetVariable(string name, System.Func<object> func)
+        {
+            interpreter.RegisterPresetVariable(name, func);
         }
 
         private void RegisterDefaultVariables()
@@ -135,6 +147,10 @@ namespace EventFramework.Editor
             {
                 RegisterDefaultVariables();
             }
+            if (GUILayout.Button("单元测试", EditorStyles.toolbarButton, GUILayout.Width(60)))
+            {
+                CommandInterpreterTests.RunAllTests();
+            }
 
             GUILayout.FlexibleSpace();
 
@@ -147,23 +163,48 @@ namespace EventFramework.Editor
         {
             EditorGUILayout.LabelField("输出", EditorStyles.boldLabel);
 
-            outputScrollPos = EditorGUILayout.BeginScrollView(outputScrollPos,
+            // 创建深色背景样式（使用缓存的纹理）
+            if (outputBackgroundTex == null)
+            {
+                outputBackgroundTex = MakeTex(2, 2, new Color(0.15f, 0.15f, 0.15f, 1f));
+            }
+            
+            GUIStyle scrollViewStyle = new GUIStyle();
+            scrollViewStyle.normal.background = outputBackgroundTex;
+
+            outputScrollPos = EditorGUILayout.BeginScrollView(outputScrollPos, scrollViewStyle,
                 GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
 
-            // 使用 RichText 支持颜色
+            // 使用 SelectableLabel 支持复制文本
             GUIStyle outputStyle = new GUIStyle(EditorStyles.label)
             {
                 richText = true,
                 wordWrap = true,
-                padding = new RectOffset(5, 5, 2, 2)
+                padding = new RectOffset(5, 5, 2, 2),
+                normal = { textColor = new Color(0.9f, 0.9f, 0.9f) }
             };
 
             foreach (var line in outputHistory)
             {
-                EditorGUILayout.LabelField(line, outputStyle);
+                // 计算文本高度
+                float height = outputStyle.CalcHeight(new GUIContent(line), EditorGUIUtility.currentViewWidth - 30);
+                Rect rect = EditorGUILayout.GetControlRect(false, height);
+                EditorGUI.SelectableLabel(rect, line, outputStyle);
             }
 
             EditorGUILayout.EndScrollView();
+        }
+
+        // 创建纯色纹理
+        private Texture2D MakeTex(int width, int height, Color col)
+        {
+            Color[] pix = new Color[width * height];
+            for (int i = 0; i < pix.Length; i++)
+                pix[i] = col;
+            Texture2D result = new Texture2D(width, height);
+            result.SetPixels(pix);
+            result.Apply();
+            return result;
         }
 
         private void DrawInputArea()

@@ -41,7 +41,7 @@ namespace EventFramework.Editor
             if (bestMatch == null)
             {
                 string argTypes = string.Join(", ", args.Select(a => a?.GetType()?.Name ?? "null"));
-                return $"未找到匹配的方法重载，参数类型: ({argTypes})";
+                return $"Error: 未找到匹配的方法重载，参数类型: ({argTypes})";
             }
 
             // 转换参数类型
@@ -174,7 +174,7 @@ namespace EventFramework.Editor
                 }
                 catch (Exception ex)
                 {
-                    value = $"错误: 预设变量 {name} 求值失败: {ex.Message}";
+                    value = $"Error: 预设变量 {name} 求值失败: {ex.Message}";
                     return true; // 返回 true 以便错误消息能被传递出去
                 }
             }
@@ -207,14 +207,14 @@ namespace EventFramework.Editor
                 // 禁止给 # 开头的变量赋值
                 string baseVar = left.Split('.')[0].Split('[')[0].Trim();
                 if (baseVar.StartsWith("#"))
-                    return $"错误: 预设变量 {baseVar} 是只读的，不能赋值";
+                    return $"Error: 预设变量 {baseVar} 是只读的，不能赋值";
 
                 // 右侧表达式求值
                 object value = EvaluateExpression(right);
 
                 // 修复 Bug #7: 区分错误和 null 值
                 if (value is string error && IsErrorMessage(error))
-                    return $"赋值失败: {error}";
+                    return $"Error: 赋值失败: {error}";
 
                 // 检查左侧是否包含成员访问（点或索引）
                 if (left.Contains(".") || left.Contains("["))
@@ -259,7 +259,7 @@ namespace EventFramework.Editor
 
                 object container = EvaluateExpression(containerExpr);
                 if (container is string error && IsErrorMessage(error))
-                    return $"赋值失败: {error}";
+                    return $"Error: 赋值失败: {error}";
 
                 object indexObj = EvaluateExpression(indexStr);
 
@@ -268,10 +268,10 @@ namespace EventFramework.Editor
                     if (!(indexObj is int idx))
                     {
                         if (!int.TryParse(indexStr, out idx))
-                            return $"索引格式错误: [{indexStr}]";
+                            return $"Error: 索引格式错误: [{indexStr}]";
                     }
                     if (idx < 0 || idx >= list.Count)
-                        return $"索引越界: [{idx}] (长度={list.Count})";
+                        return $"Error: 索引越界: [{idx}] (长度={list.Count})";
 
                     list[idx] = value;
                     return $"{containerExpr}[{idx}] 已赋值 = {FormatValue(value)}";
@@ -283,7 +283,7 @@ namespace EventFramework.Editor
                     return $"{containerExpr}[{indexObj}] 已赋值 = {FormatValue(value)}";
                 }
 
-                return $"索引赋值失败: {containerExpr} 不是可索引类型";
+                return $"Error: 索引赋值失败: {containerExpr} 不是可索引类型";
             }
             else if (lastDotIdx > 0)
             {
@@ -293,10 +293,10 @@ namespace EventFramework.Editor
 
                 object parent = EvaluateExpression(parentExpr);
                 if (parent is string error && IsErrorMessage(error))
-                    return $"赋值失败: {error}";
+                    return $"Error: 赋值失败: {error}";
 
                 if (parent == null)
-                    return "赋值失败: 尝试访问 null 对象的成员";
+                    return "Error: 赋值失败: 尝试访问 null 对象的成员";
 
                 Type type = parent.GetType();
                 // 包含 Public 和 NonPublic（私有/保护）
@@ -318,7 +318,7 @@ namespace EventFramework.Editor
                     }
                     catch (Exception ex)
                     {
-                        return $"属性赋值失败: {ex.Message}";
+                        return $"Error: 属性赋值失败: {ex.Message}";
                     }
                 }
 
@@ -338,14 +338,14 @@ namespace EventFramework.Editor
                     }
                     catch (Exception ex)
                     {
-                        return $"字段赋值失败: {ex.Message}";
+                        return $"Error: 字段赋值失败: {ex.Message}";
                     }
                 }
 
-                return $"未找到可写的成员: {type.Name}.{memberName}";
+                return $"Error: 未找到可写的成员: {type.Name}.{memberName}";
             }
 
-            return $"无法解析赋值目标: {memberExpr}";
+            return $"Error: 无法解析赋值目标: {memberExpr}";
         }
 
         /// <summary>
@@ -489,9 +489,7 @@ namespace EventFramework.Editor
         /// </summary>
         private bool IsErrorMessage(string msg)
         {
-            return msg.StartsWith("未找到") || msg.StartsWith("索引") ||
-        msg.Contains("不是委托") || msg.Contains("失败") ||
-     msg.StartsWith("错误");
+            return msg.StartsWith("Error:");
         }
 
         /// <summary>
@@ -564,7 +562,7 @@ namespace EventFramework.Editor
                     }
                     catch (Exception ex)
                     {
-                        return $"委托调用失败: {ex.InnerException?.Message ?? ex.Message}";
+                        return $"Error: 委托调用失败: {ex.InnerException?.Message ?? ex.Message}";
                     }
                 }
                 else if (funcObj is MethodGroup methodGroup)
@@ -577,12 +575,12 @@ namespace EventFramework.Editor
                     }
                     catch (Exception ex)
                     {
-                        return $"方法调用失败: {ex.InnerException?.Message ?? ex.Message}";
+                        return $"Error: 方法调用失败: {ex.InnerException?.Message ?? ex.Message}";
                     }
                 }
                 else
                 {
-                    return $"表达式 {funcExpr} 不是委托类型";
+                    return $"Error: 表达式 {funcExpr} 不是委托类型";
                 }
             }
 
@@ -661,21 +659,21 @@ namespace EventFramework.Editor
             {
                 Type type = FindType(constructorExpr.Trim());
                 if (type == null)
-                    return $"未找到类型: {constructorExpr}";
+                    return $"Error: 未找到类型: {constructorExpr}";
 
                 return CreateInstance(type, "");
             }
 
             // new Vector3(1,2,3)
             if (!constructorExpr.EndsWith(")"))
-                return $"构造函数语法错误: {constructorExpr}";
+                return $"Error: 构造函数语法错误: {constructorExpr}";
 
             string typeName = constructorExpr.Substring(0, parenIdx).Trim();
             string argsExpr = constructorExpr.Substring(parenIdx + 1, constructorExpr.Length - parenIdx - 2);
 
             Type constructorType = FindType(typeName);
             if (constructorType == null)
-                return $"未找到类型: {typeName}";
+                return $"Error: 未找到类型: {typeName}";
 
             return CreateInstance(constructorType, argsExpr);
         }
@@ -697,7 +695,7 @@ namespace EventFramework.Editor
             }
 
             if (elementType == null)
-                return $"未找到类型: {typeName}";
+                return $"Error: 未找到类型: {typeName}";
 
             // 解析数组长度
             object lengthObj = EvaluateExpression(lengthStr);
@@ -709,11 +707,11 @@ namespace EventFramework.Editor
             }
             else if (!int.TryParse(lengthStr, out length))
             {
-                return $"数组长度格式错误: [{lengthStr}]";
+                return $"Error: 数组长度格式错误: [{lengthStr}]";
             }
 
             if (length < 0)
-                return $"数组长度不能为负数: {length}";
+                return $"Error: 数组长度不能为负数: {length}";
 
             try
             {
@@ -721,7 +719,7 @@ namespace EventFramework.Editor
             }
             catch (Exception ex)
             {
-                return $"创建数组失败: {ex.Message}";
+                return $"Error: 创建数组失败: {ex.Message}";
             }
         }
 
@@ -800,11 +798,11 @@ namespace EventFramework.Editor
                     return Activator.CreateInstance(type);
                 }
 
-                return $"未找到匹配的构造函数: {type.Name}({string.Join(", ", args.Select(a => a?.GetType()?.Name ?? "null"))})";
+                return $"Error: 未找到匹配的构造函数: {type.Name}({string.Join(", ", args.Select(a => a?.GetType()?.Name ?? "null"))})";
             }
             catch (Exception ex)
             {
-                return $"创建实例失败: {ex.InnerException?.Message ?? ex.Message}";
+                return $"Error: 创建实例失败: {ex.InnerException?.Message ?? ex.Message}";
             }
         }
 
@@ -990,9 +988,17 @@ namespace EventFramework.Editor
                     // 减号需要特殊处理，避免与负数混淆
                     if (c == '-' && i > 0)
                     {
-                        char prev = expr[i - 1];
-                        if (char.IsLetterOrDigit(prev) || prev == ')' || prev == ']')
-                            return true;
+                        // 回溯找到非空白字符
+                        int prevIdx = i - 1;
+                        while (prevIdx >= 0 && char.IsWhiteSpace(expr[prevIdx]))
+                            prevIdx--;
+                        
+                        if (prevIdx >= 0)
+                        {
+                            char prev = expr[prevIdx];
+                            if (char.IsLetterOrDigit(prev) || prev == ')' || prev == ']')
+                                return true;
+                        }
                     }
 
                     // 比较运算符（单独的 < 或 >）
@@ -1056,7 +1062,7 @@ namespace EventFramework.Editor
                 object operand = EvaluateExpression(expr.Substring(1));
                 if (operand is bool b)
                     return !b;
-                return $"错误: ! 运算符需要布尔值";
+                return $"Error: ! 运算符需要布尔值";
             }
 
             // 按优先级从低到高查找运算符（这样先找到的运算符后计算）
@@ -1130,7 +1136,15 @@ namespace EventFramework.Editor
                                 // 对于 - 运算符，需要确保前面是操作数结尾
                                 if (op == "-")
                                 {
-                                    char prev = expr[pos - 1];
+                                    // 回溯找到非空白字符
+                                    int prevIdx = pos - 1;
+                                    while (prevIdx >= 0 && char.IsWhiteSpace(expr[prevIdx]))
+                                        prevIdx--;
+                                    
+                                    if (prevIdx < 0)
+                                        continue;
+                                    
+                                    char prev = expr[prevIdx];
                                     if (!char.IsLetterOrDigit(prev) && prev != ')' && prev != ']')
                                         continue;
                                 }
@@ -1177,13 +1191,13 @@ namespace EventFramework.Editor
             {
                 if (left is bool lb && right is bool rb)
                     return lb && rb;
-                return $"错误: && 运算符需要布尔值";
+                return $"Error: && 运算符需要布尔值";
             }
             if (op == "||")
             {
                 if (left is bool lb && right is bool rb)
                     return lb || rb;
-                return $"错误: || 运算符需要布尔值";
+                return $"Error: || 运算符需要布尔值";
             }
 
             // 相等比较
@@ -1218,10 +1232,10 @@ namespace EventFramework.Editor
                     case "-": return SimplifyNumber(l - r);
                     case "*": return SimplifyNumber(l * r);
                     case "/":
-                        if (r == 0) return "错误: 除数不能为零";
+                        if (r == 0) return "Error: 除数不能为零";
                         return SimplifyNumber(l / r);
                     case "%":
-                        if (r == 0) return "错误: 除数不能为零";
+                        if (r == 0) return "Error: 除数不能为零";
                         return SimplifyNumber(l % r);
                     case "<": return l < r;
                     case ">": return l > r;
@@ -1247,7 +1261,7 @@ namespace EventFramework.Editor
                 catch { }
             }
 
-            return $"错误: 无法对 {left?.GetType()?.Name ?? "null"} 和 {right?.GetType()?.Name ?? "null"} 执行 {op} 运算";
+            return $"Error: 无法对 {left?.GetType()?.Name ?? "null"} 和 {right?.GetType()?.Name ?? "null"} 执行 {op} 运算";
         }
 
         /// <summary>
@@ -1288,7 +1302,7 @@ namespace EventFramework.Editor
                 {
                     if (!int.TryParse(indexStr, out idx))
                     {
-                        return $"索引格式错误: [{indexStr}]";
+                        return $"Error: 索引格式错误: [{indexStr}]";
                     }
                 }
 
@@ -1296,7 +1310,7 @@ namespace EventFramework.Editor
                 {
                     if (idx < 0 || idx >= list.Count)
                     {
-                        return $"索引越界: [{idx}] (长度={list.Count})";
+                        return $"Error: 索引越界: [{idx}] (长度={list.Count})";
                     }
                     return list[idx];
                 }
@@ -1306,21 +1320,30 @@ namespace EventFramework.Editor
                 {
                     if (dict.Contains(indexObj))
                         return dict[indexObj];
-                    return $"字典中不存在键: {indexObj}";
+                    return $"Error: 字典中不存在键: {indexObj}";
                 }
 
-                return $"索引访问失败: {expr} 不是可索引类型";
+                return $"Error: 索引访问失败: {expr} 不是可索引类型";
             }
 
             // 按点分割，逐层解析
             var parts = SplitByDot(expr);
             object current = null;
 
-            // 第一层：变量、预设变量或类型
+            // 第一层：变量、预设变量或类型（可能带索引，如 vectors[0]）
             string first = parts[0];
 
+            // 检查第一部分是否带索引（如 vectors[0]）
+            int firstBracketIdx = FindBracketIndex(first);
+            if (firstBracketIdx > 0)
+            {
+                // 带索引的情况，递归解析
+                current = ResolveDeepReference(first);
+                if (current is string error && IsErrorMessage(error))
+                    return error;
+            }
             // 优先检查预设变量（以#开头）
-            if (first.StartsWith("#"))
+            else if (first.StartsWith("#"))
             {
                 if (TryGetPresetVariable(first, out object presetValue))
                 {
@@ -1328,7 +1351,7 @@ namespace EventFramework.Editor
                 }
                 else
                 {
-                    return $"未找到预设变量: {first}";
+                    return $"Error: 未找到预设变量: {first}";
                 }
             }
             else if (variables.ContainsKey(first))
@@ -1342,7 +1365,7 @@ namespace EventFramework.Editor
                 if (type != null)
                     current = type;
                 else
-                    return $"未找到变量或类型: {first}";
+                    return $"Error: 未找到变量或类型: {first}";
             }
 
             // 后续层：字段/属性/方法
@@ -1713,7 +1736,7 @@ namespace EventFramework.Editor
                 return new MethodGroup(null, methods);
             }
 
-            return $"未找到类型静态成员: {t.Name}.{memberName}";
+            return $"Error: 未找到类型静态成员: {t.Name}.{memberName}";
         }
 
         /// <summary>
@@ -1722,11 +1745,35 @@ namespace EventFramework.Editor
         private object ResolveInstanceMember(object obj, string memberName)
         {
             if (obj == null)
-                return "尝试访问 null 对象的成员";
+                return "Error: 尝试访问 null 对象的成员";
 
             Type type = obj.GetType();
             // 包含 Public 和 NonPublic（私有/保护）
             const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+            // 检查是否是方法调用（带括号，如 Trim() 或 Substring(0, 5)）
+            int parenIdx = memberName.IndexOf('(');
+            if (parenIdx > 0 && memberName.EndsWith(")"))
+            {
+                string methodName = memberName.Substring(0, parenIdx);
+                string argsStr = memberName.Substring(parenIdx + 1, memberName.Length - parenIdx - 2);
+                
+                var methods = type.GetMethods(flags).Where(m => m.Name == methodName).ToArray();
+                if (methods.Length > 0)
+                {
+                    object[] args = string.IsNullOrEmpty(argsStr) ? new object[0] : ParseArguments(argsStr);
+                    var methodGroup = new MethodGroup(obj, methods);
+                    try
+                    {
+                        return methodGroup.Invoke(args);
+                    }
+                    catch (Exception ex)
+                    {
+                        return $"Error: 方法调用失败: {ex.InnerException?.Message ?? ex.Message}";
+                    }
+                }
+                return $"Error: 未找到方法: {type.Name}.{methodName}";
+            }
 
             // 实例属性
             var prop = type.GetProperty(memberName, flags);
@@ -1738,7 +1785,7 @@ namespace EventFramework.Editor
                 }
                 catch (Exception ex)
                 {
-                    return $"属性访问失败: {ex.Message}";
+                    return $"Error: 属性访问失败: {ex.Message}";
                 }
             }
 
@@ -1752,18 +1799,18 @@ namespace EventFramework.Editor
                 }
                 catch (Exception ex)
                 {
-                    return $"字段访问失败: {ex.Message}";
+                    return $"Error: 字段访问失败: {ex.Message}";
                 }
             }
 
             // 实例方法（可能有多个重载，返回包装器）
-            var methods = type.GetMethods(flags).Where(m => m.Name == memberName).ToArray();
-            if (methods.Length > 0)
+            var methods2 = type.GetMethods(flags).Where(m => m.Name == memberName).ToArray();
+            if (methods2.Length > 0)
             {
-                return new MethodGroup(obj, methods);
+                return new MethodGroup(obj, methods2);
             }
 
-            return $"未找到成员: {type.Name}.{memberName}";
+            return $"Error: 未找到成员: {type.Name}.{memberName}";
         }
 
         /// <summary>
