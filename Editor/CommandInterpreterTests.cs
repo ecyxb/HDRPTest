@@ -8,7 +8,7 @@ using UnityEditor;
 #endif
 using EventFramework;
 
-namespace EventFramework.Editor
+namespace EventFramework
 {
 
     /// <summary>

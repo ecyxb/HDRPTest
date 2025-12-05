@@ -511,6 +511,7 @@ namespace EventFramework
                 if (udpClient == null)
                 {
                     udpClient = new UdpClient();
+                    udpClient.EnableBroadcast = true;
                 }
 
                 // 构造数据：前4字节为帧号(int)，后续为命令字符串(UTF8)
@@ -520,16 +521,17 @@ namespace EventFramework
                 System.Buffer.BlockCopy(frameBytes, 0, data, 0, frameBytes.Length);
                 System.Buffer.BlockCopy(commandBytes, 0, data, frameBytes.Length, commandBytes.Length);
                 
-                IPEndPoint endPoint = new IPEndPoint(IPAddress.Loopback, UDP_BROADCAST_PORT);
+                // 使用广播地址
+                IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, UDP_BROADCAST_PORT);
                 
                 udpClient.Send(data, data.Length, endPoint);
 
                 string frameInfo = $"(帧:{targetFrame})";
-                AddOutput($"<color=yellow>[UDP] 已发送到 127.0.0.1:{UDP_BROADCAST_PORT} {frameInfo}: {command}</color>");
+                AddOutput($"<color=yellow>[UDP] 已广播到 255.255.255.255:{UDP_BROADCAST_PORT} {frameInfo}: {command}</color>");
             }
             catch (System.Exception ex)
             {
-                AddOutput($"<color=red>[UDP] 发送失败: {ex.Message}</color>");
+                AddOutput($"<color=red>[UDP] 广播失败: {ex.Message}</color>");
             }
         }
 

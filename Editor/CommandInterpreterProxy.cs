@@ -62,6 +62,7 @@ namespace EventFramework
             try
             {
                 udpListener = new UdpClient(UDP_PORT);
+                udpListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 isRunning = true;
 
                 receiveThread = new Thread(ReceiveLoop)
