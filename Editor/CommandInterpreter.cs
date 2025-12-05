@@ -991,7 +991,7 @@ namespace EventFramework
                         int prevIdx = i - 1;
                         while (prevIdx >= 0 && char.IsWhiteSpace(expr[prevIdx]))
                             prevIdx--;
-                        
+
                         if (prevIdx >= 0)
                         {
                             char prev = expr[prevIdx];
@@ -1139,10 +1139,10 @@ namespace EventFramework
                                     int prevIdx = pos - 1;
                                     while (prevIdx >= 0 && char.IsWhiteSpace(expr[prevIdx]))
                                         prevIdx--;
-                                    
+
                                     if (prevIdx < 0)
                                         continue;
-                                    
+
                                     char prev = expr[prevIdx];
                                     if (!char.IsLetterOrDigit(prev) && prev != ')' && prev != ']')
                                         continue;
@@ -1755,7 +1755,7 @@ namespace EventFramework
             {
                 string methodName = memberName.Substring(0, parenIdx);
                 string argsStr = memberName.Substring(parenIdx + 1, memberName.Length - parenIdx - 2);
-                
+
                 var methods = type.GetMethods(flags).Where(m => m.Name == methodName).ToArray();
                 if (methods.Length > 0)
                 {

@@ -25,6 +25,7 @@ namespace EventFramework
     /// <summary>
     /// 命令解释器代理，负责接收 UDP 命令并在逻辑线程执行
     /// 使用方式：在逻辑线程初始化时创建实例，每帧调用 ProcessPendingCommands(currentFrame)
+    /// 支持多客户端同时运行（使用 UDP 广播 + 端口复用）
     /// </summary>
     public class CommandInterpreterProxy : IDisposable
     {
@@ -53,7 +54,7 @@ namespace EventFramework
         }
 
         /// <summary>
-        /// 启动 UDP 监听
+        /// 启动 UDP 监听（广播模式，支持多客户端）
         /// </summary>
         public void Start()
         {
@@ -61,10 +62,17 @@ namespace EventFramework
 
             try
             {
-                udpListener = new UdpClient(UDP_PORT);
+                udpListener = new UdpClient();
+                
+                // 【关键1】启用地址复用，允许多个客户端绑定同一端口
                 udpListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+   
+                // 【关键2】绑定到本地端口，监听所有网络接口
+                udpListener.Client.Bind(new IPEndPoint(IPAddress.Any, UDP_PORT));
+    
                 isRunning = true;
 
+                // 【关键3】设置为后台线程
                 receiveThread = new Thread(ReceiveLoop)
                 {
                     IsBackground = true,
@@ -72,7 +80,7 @@ namespace EventFramework
                 };
                 receiveThread.Start();
 
-                LogHandler?.Invoke($"[CommandInterpreterProxy] 已启动，监听端口 {UDP_PORT}");
+                LogHandler?.Invoke($"[CommandInterpreterProxy] 已启动（广播模式），监听端口 {UDP_PORT}");
             }
             catch (Exception ex)
             {
@@ -91,7 +99,12 @@ namespace EventFramework
 
             if (udpListener != null)
             {
-                udpListener.Close();
+                try
+                {
+                    udpListener.Close();
+                    udpListener.Dispose();
+                }
+                catch { }
                 udpListener = null;
             }
 

@@ -24,13 +24,13 @@ namespace EventFramework
         private bool showVariables = true;
         private bool showHelp = true;
         private bool needFocusInput = false;
-        
+
         // 单例实例（静态）
         public static CommandInterpreterWindow Instance { get; private set; }
-        
+
         // 缓存的背景纹理
         private Texture2D outputBackgroundTex;
-        
+
         // UDP 广播配置
         private const int UDP_BROADCAST_PORT = 11451;
         private UdpClient udpClient;
@@ -65,7 +65,7 @@ namespace EventFramework
             Instance = null;
             // 取消监听
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
-            
+
             // 清理 UDP 客户端
             if (udpClient != null)
             {
@@ -148,7 +148,7 @@ namespace EventFramework
                 DrawHelpPanel();
             }
 
-            EditorGUILayout.EndHorizontal();;
+            EditorGUILayout.EndHorizontal(); ;
 
             EditorGUILayout.EndVertical();
         }
@@ -194,7 +194,7 @@ namespace EventFramework
             {
                 outputBackgroundTex = MakeTex(2, 2, new Color(0.15f, 0.15f, 0.15f, 1f));
             }
-            
+
             GUIStyle scrollViewStyle = new GUIStyle();
             scrollViewStyle.normal.background = outputBackgroundTex;
 
@@ -520,10 +520,10 @@ namespace EventFramework
                 byte[] data = new byte[frameBytes.Length + commandBytes.Length];
                 System.Buffer.BlockCopy(frameBytes, 0, data, 0, frameBytes.Length);
                 System.Buffer.BlockCopy(commandBytes, 0, data, frameBytes.Length, commandBytes.Length);
-                
+
                 // 使用广播地址
                 IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, UDP_BROADCAST_PORT);
-                
+
                 udpClient.Send(data, data.Length, endPoint);
 
                 string frameInfo = $"(帧:{targetFrame})";
