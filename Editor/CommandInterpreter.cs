@@ -3,7 +3,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reflection;
 #if UNITY_2017_1_OR_NEWER
 using UnityEngine;
@@ -1579,7 +1578,6 @@ namespace EventFramework.Editor
             }
             catch (Exception ex)
             {
-                EOHelper.LogWarning($"创建泛型类型失败: {genericDef.Name}<{string.Join(", ", typeArgTypes.Select(t => t?.Name ?? "null"))}> - {ex.Message}");
                 return null;
             }
         }

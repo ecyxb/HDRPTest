@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using EventFramework;
 
-namespace EventFramework.Editor
+namespace EventFramework
 {
     /// <summary>
     /// 命令数据结构
@@ -28,6 +28,8 @@ namespace EventFramework.Editor
     /// </summary>
     public class CommandInterpreterProxy : IDisposable
     {
+        public Action<string> ErrorHandler;
+        public Action<string> LogHandler;
         private const int UDP_PORT = 11451;
         
         private UdpClient udpListener;
@@ -69,11 +71,11 @@ namespace EventFramework.Editor
                 };
                 receiveThread.Start();
 
-                EOHelper.Log($"[CommandInterpreterProxy] 已启动，监听端口 {UDP_PORT}");
+                LogHandler?.Invoke($"[CommandInterpreterProxy] 已启动，监听端口 {UDP_PORT}");
             }
             catch (Exception ex)
             {
-                EOHelper.LogError($"[CommandInterpreterProxy] 启动失败: {ex.Message}");
+                ErrorHandler?.Invoke($"[CommandInterpreterProxy] 启动失败: {ex.Message}");
             }
         }
 
@@ -97,7 +99,7 @@ namespace EventFramework.Editor
                 receiveThread.Join(1000); // 等待最多 1 秒
             }
 
-            EOHelper.Log("[CommandInterpreterProxy] 已停止");
+            LogHandler?.Invoke("[CommandInterpreterProxy] 已停止");
         }
 
         /// <summary>
@@ -137,7 +139,7 @@ namespace EventFramework.Editor
                 {
                     if (isRunning)
                     {
-                        EOHelper.LogError($"[CommandInterpreterProxy] 接收错误: {ex.Message}");
+                        LogHandler?.Invoke($"[CommandInterpreterProxy] 接收错误: {ex.Message}");
                     }
                 }
             }
@@ -199,7 +201,7 @@ namespace EventFramework.Editor
         /// </summary>
         private void ExecuteCommand(string command)
         {
-            EOHelper.Log($"[CommandInterpreterProxy] 执行: {command}");
+            LogHandler?.Invoke($"[CommandInterpreterProxy] 执行: {command}");
 
             try
             {
@@ -207,16 +209,16 @@ namespace EventFramework.Editor
 
                 if (result.StartsWith("Error:"))
                 {
-                    EOHelper.LogError($"[CommandInterpreterProxy] {result}");
+                    ErrorHandler?.Invoke($"[CommandInterpreterProxy] {result}");
                 }
                 else
                 {
-                    EOHelper.Log($"[CommandInterpreterProxy] {result}");
+                    LogHandler?.Invoke($"[CommandInterpreterProxy] {result}");
                 }
             }
             catch (Exception ex)
             {
-                EOHelper.LogError($"[CommandInterpreterProxy] 执行异常: {ex.Message}");
+                ErrorHandler?.Invoke($"[CommandInterpreterProxy] 执行异常: {ex.Message}");
             }
         }
 

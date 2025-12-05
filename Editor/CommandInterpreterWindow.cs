@@ -5,13 +5,13 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace EventFramework.Editor
+namespace EventFramework
 {
 
     /// <summary>
     /// 命令解释器编辑器窗口
     /// </summary>
-    public class CommandInterpreterWindow : EditorWindow
+    public abstract class CommandInterpreterWindow : EditorWindow
     {
         private CommandInterpreter interpreter;
         private string inputCommand = "";
@@ -34,16 +34,16 @@ namespace EventFramework.Editor
         // UDP 广播配置
         private const int UDP_BROADCAST_PORT = 11451;
         private UdpClient udpClient;
-        
-        // 广播帧号（用于指定命令在哪个逻辑帧执行）
-        public int broadcastTargetFrame = 0;
 
-        [MenuItem("Tools/命令解释器 %#T")]
-        public static void ShowWindow()
-        {
-            var window = GetWindow<CommandInterpreterWindow>("命令解释器");
-            window.minSize = new Vector2(400, 300);
-        }
+        // 广播帧号（用于指定命令在哪个逻辑帧执行）
+        public virtual int broadcastTargetFrame => 0;
+
+        // [MenuItem("Tools/命令解释器 %#T")]
+        // public static void ShowWindow()
+        // {
+        //     var window = GetWindow<CommandInterpreterWindow>("命令解释器");
+        //     window.minSize = new Vector2(400, 300);
+        // }
 
         private void OnEnable()
         {

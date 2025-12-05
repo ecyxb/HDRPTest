@@ -17,6 +17,13 @@ namespace EventFramework.Editor
     /// </summary>
     public static class CommandInterpreterTests
     {
+#if UNITY_2017_1_OR_NEWER
+        public static Action<string> ErrorHandler = Debug.LogError;
+        public static Action<string> LogHandler = Debug.Log;
+#else
+        public static Action<string> ErrorHandler = Console.WriteLine;
+        public static Action<string> LogHandler = Console.WriteLine;
+#endif
         private static int passCount = 0;
         private static int failCount = 0;
         private static List<string> failedTests = new List<string>();
@@ -28,7 +35,7 @@ namespace EventFramework.Editor
             failCount = 0;
             failedTests.Clear();
 
-            EOHelper.Log("========== CommandInterpreter 单元测试开始 ==========");
+            LogHandler("========== CommandInterpreter 单元测试开始 ==========");
 
             // 1. 字面量解析测试
             TestLiterals();
@@ -97,20 +104,20 @@ namespace EventFramework.Editor
             TestNestedCalls();
 
             // 汇总
-            EOHelper.Log("========== 测试结果 ==========");
-            EOHelper.Log($"通过: {passCount}, 失败: {failCount}");
+            LogHandler("========== 测试结果 ==========");
+            LogHandler($"通过: {passCount}, 失败: {failCount}");
 
             if (failedTests.Count > 0)
             {
-                EOHelper.LogError("失败的测试:");
+                ErrorHandler("失败的测试:");
                 foreach (var test in failedTests)
                 {
-                    EOHelper.LogError($"  - {test}");
+                    ErrorHandler($"  - {test}");
                 }
             }
             else
             {
-                EOHelper.Log("<color=green>所有测试通过!</color>");
+                LogHandler("<color=green>所有测试通过!</color>");
             }
         }
 
@@ -133,13 +140,13 @@ namespace EventFramework.Editor
             if (pass)
             {
                 passCount++;
-                EOHelper.Log($"<color=green>[PASS]</color> {testName}");
+                LogHandler($"<color=green>[PASS]</color> {testName}");
             }
             else
             {
                 failCount++;
                 failedTests.Add(testName);
-                EOHelper.LogError($"<color=red>[FAIL]</color> {testName}: 期望 {expected ?? "null"} ({expected?.GetType()?.Name ?? "null"}), 实际 {actual ?? "null"} ({actual?.GetType()?.Name ?? "null"})");
+                ErrorHandler($"<color=red>[FAIL]</color> {testName}: 期望 {expected ?? "null"} ({expected?.GetType()?.Name ?? "null"}), 实际 {actual ?? "null"} ({actual?.GetType()?.Name ?? "null"})");
             }
         }
 
@@ -148,13 +155,13 @@ namespace EventFramework.Editor
             if (condition)
             {
                 passCount++;
-                EOHelper.Log($"<color=green>[PASS]</color> {testName}");
+                LogHandler($"<color=green>[PASS]</color> {testName}");
             }
             else
             {
                 failCount++;
                 failedTests.Add(testName);
-                EOHelper.LogError($"<color=red>[FAIL]</color> {testName}: 条件不满足");
+                ErrorHandler($"<color=red>[FAIL]</color> {testName}: 条件不满足");
             }
         }
 
@@ -168,13 +175,13 @@ namespace EventFramework.Editor
             if (obj != null)
             {
                 passCount++;
-                EOHelper.Log($"<color=green>[PASS]</color> {testName}");
+                LogHandler($"<color=green>[PASS]</color> {testName}");
             }
             else
             {
                 failCount++;
                 failedTests.Add(testName);
-                EOHelper.LogError($"<color=red>[FAIL]</color> {testName}: 对象为 null");
+                ErrorHandler($"<color=red>[FAIL]</color> {testName}: 对象为 null");
             }
         }
 
@@ -183,13 +190,13 @@ namespace EventFramework.Editor
             if (obj == null)
             {
                 passCount++;
-                EOHelper.Log($"<color=green>[PASS]</color> {testName}");
+                LogHandler($"<color=green>[PASS]</color> {testName}");
             }
             else
             {
                 failCount++;
                 failedTests.Add(testName);
-                EOHelper.LogError($"<color=red>[FAIL]</color> {testName}: 对象不为 null，实际值: {obj}");
+                ErrorHandler($"<color=red>[FAIL]</color> {testName}: 对象不为 null，实际值: {obj}");
             }
         }
 
@@ -198,13 +205,13 @@ namespace EventFramework.Editor
             if (interp.IsError(result))
             {
                 passCount++;
-                EOHelper.Log($"<color=green>[PASS]</color> {testName}: 错误消息 = {result}");
+                LogHandler($"<color=green>[PASS]</color> {testName}: 错误消息 = {result}");
             }
             else
             {
                 failCount++;
                 failedTests.Add(testName);
-                EOHelper.LogError($"<color=red>[FAIL]</color> {testName}: 期望错误，但得到 {result}");
+                ErrorHandler($"<color=red>[FAIL]</color> {testName}: 期望错误，但得到 {result}");
             }
         }
 
@@ -213,13 +220,13 @@ namespace EventFramework.Editor
             if (!interp.IsError(result))
             {
                 passCount++;
-                EOHelper.Log($"<color=green>[PASS]</color> {testName}");
+                LogHandler($"<color=green>[PASS]</color> {testName}");
             }
             else
             {
                 failCount++;
                 failedTests.Add(testName);
-                EOHelper.LogError($"<color=red>[FAIL]</color> {testName}: 意外错误 = {result}");
+                ErrorHandler($"<color=red>[FAIL]</color> {testName}: 意外错误 = {result}");
             }
         }
 
@@ -228,13 +235,13 @@ namespace EventFramework.Editor
             if (obj is T)
             {
                 passCount++;
-                EOHelper.Log($"<color=green>[PASS]</color> {testName}");
+                LogHandler($"<color=green>[PASS]</color> {testName}");
             }
             else
             {
                 failCount++;
                 failedTests.Add(testName);
-                EOHelper.LogError($"<color=red>[FAIL]</color> {testName}: 期望类型 {typeof(T).Name}, 实际类型 {obj?.GetType()?.Name ?? "null"}");
+                ErrorHandler($"<color=red>[FAIL]</color> {testName}: 期望类型 {typeof(T).Name}, 实际类型 {obj?.GetType()?.Name ?? "null"}");
             }
         }
 
@@ -243,13 +250,13 @@ namespace EventFramework.Editor
             if (haystack != null && haystack.Contains(needle))
             {
                 passCount++;
-                EOHelper.Log($"<color=green>[PASS]</color> {testName}");
+                LogHandler($"<color=green>[PASS]</color> {testName}");
             }
             else
             {
                 failCount++;
                 failedTests.Add(testName);
-                EOHelper.LogError($"<color=red>[FAIL]</color> {testName}: '{haystack}' 不包含 '{needle}'");
+                ErrorHandler($"<color=red>[FAIL]</color> {testName}: '{haystack}' 不包含 '{needle}'");
             }
         }
 
@@ -259,7 +266,7 @@ namespace EventFramework.Editor
 
         private static void TestLiterals()
         {
-            EOHelper.Log("--- 1. 字面量解析测试 ---");
+            LogHandler("--- 1. 字面量解析测试 ---");
             var interp = new CommandInterpreter();
 
             // 整数
@@ -293,7 +300,7 @@ namespace EventFramework.Editor
 
         private static void TestVariables()
         {
-            EOHelper.Log("--- 2. 变量测试 ---");
+            LogHandler("--- 2. 变量测试 ---");
             var interp = new CommandInterpreter();
 
             // 注册变量
@@ -331,7 +338,7 @@ namespace EventFramework.Editor
 
         private static void TestPresetVariables()
         {
-            EOHelper.Log("--- 3. 预设变量测试 ---");
+            LogHandler("--- 3. 预设变量测试 ---");
             var interp = new CommandInterpreter();
 
             int counter = 0;
@@ -369,7 +376,7 @@ namespace EventFramework.Editor
 
         private static void TestArithmeticOperators()
         {
-            EOHelper.Log("--- 4. 算术运算符测试 ---");
+            LogHandler("--- 4. 算术运算符测试 ---");
             var interp = new CommandInterpreter();
 
             // 基本运算
@@ -406,7 +413,7 @@ namespace EventFramework.Editor
 
         private static void TestComparisonOperators()
         {
-            EOHelper.Log("--- 5. 比较运算符测试 ---");
+            LogHandler("--- 5. 比较运算符测试 ---");
             var interp = new CommandInterpreter();
 
             // 相等比较
@@ -442,7 +449,7 @@ namespace EventFramework.Editor
 
         private static void TestLogicalOperators()
         {
-            EOHelper.Log("--- 6. 逻辑运算符测试 ---");
+            LogHandler("--- 6. 逻辑运算符测试 ---");
             var interp = new CommandInterpreter();
 
             // AND
@@ -472,7 +479,7 @@ namespace EventFramework.Editor
 
         private static void TestOperatorPrecedence()
         {
-            EOHelper.Log("--- 7. 运算符优先级测试 ---");
+            LogHandler("--- 7. 运算符优先级测试 ---");
             var interp = new CommandInterpreter();
 
             // 乘除优先于加减
@@ -503,7 +510,7 @@ namespace EventFramework.Editor
 
         private static void TestConstructors()
         {
-            EOHelper.Log("--- 8. 构造函数调用测试 ---");
+            LogHandler("--- 8. 构造函数调用测试 ---");
             var interp = new CommandInterpreter();
 
             // Vector3 构造
@@ -540,7 +547,7 @@ namespace EventFramework.Editor
 
         private static void TestArrays()
         {
-            EOHelper.Log("--- 9. 数组创建和访问测试 ---");
+            LogHandler("--- 9. 数组创建和访问测试 ---");
             var interp = new CommandInterpreter();
 
             // 创建数组
@@ -584,7 +591,7 @@ namespace EventFramework.Editor
 
         private static void TestMemberAccess()
         {
-            EOHelper.Log("--- 10. 成员访问测试 ---");
+            LogHandler("--- 10. 成员访问测试 ---");
             var interp = new CommandInterpreter();
 
             // Vector3 成员访问
@@ -618,7 +625,7 @@ namespace EventFramework.Editor
 
         private static void TestMethodCalls()
         {
-            EOHelper.Log("--- 11. 方法调用测试 ---");
+            LogHandler("--- 11. 方法调用测试 ---");
             var interp = new CommandInterpreter();
 
             // 字符串方法
@@ -652,7 +659,7 @@ namespace EventFramework.Editor
 
         private static void TestMethodOverloads()
         {
-            EOHelper.Log("--- 12. 方法重载测试 ---");
+            LogHandler("--- 12. 方法重载测试 ---");
             var interp = new CommandInterpreter();
 
             // Mathf 静态方法（多种重载）
@@ -681,7 +688,7 @@ namespace EventFramework.Editor
 
         private static void TestStaticMembers()
         {
-            EOHelper.Log("--- 13. 静态成员访问测试 ---");
+            LogHandler("--- 13. 静态成员访问测试 ---");
             var interp = new CommandInterpreter();
 
             // Vector3 静态属性
@@ -713,7 +720,7 @@ namespace EventFramework.Editor
 
         private static void TestGenerics()
         {
-            EOHelper.Log("--- 14. 泛型类型测试 ---");
+            LogHandler("--- 14. 泛型类型测试 ---");
             var interp = new CommandInterpreter();
 
             // List<T>
@@ -750,7 +757,7 @@ namespace EventFramework.Editor
 
         private static void TestStringOperations()
         {
-            EOHelper.Log("--- 15. 字符串操作测试 ---");
+            LogHandler("--- 15. 字符串操作测试 ---");
             var interp = new CommandInterpreter();
 
             // 字符串连接
@@ -772,7 +779,7 @@ namespace EventFramework.Editor
 
         private static void TestAssignment()
         {
-            EOHelper.Log("--- 16. 赋值测试 ---");
+            LogHandler("--- 16. 赋值测试 ---");
             var interp = new CommandInterpreter();
 
             // 简单赋值
@@ -806,7 +813,7 @@ namespace EventFramework.Editor
 
         private static void TestMemberAssignment()
         {
-            EOHelper.Log("--- 17. 成员赋值测试 ---");
+            LogHandler("--- 17. 成员赋值测试 ---");
             var interp = new CommandInterpreter();
 
             // 注意：Vector3 是值类型，成员赋值需要特殊处理
@@ -836,7 +843,7 @@ namespace EventFramework.Editor
 
         private static void TestIndexAssignment()
         {
-            EOHelper.Log("--- 18. 索引赋值测试 ---");
+            LogHandler("--- 18. 索引赋值测试 ---");
             var interp = new CommandInterpreter();
 
             // 数组索引赋值
@@ -875,7 +882,7 @@ namespace EventFramework.Editor
 
         private static void TestErrorHandling()
         {
-            EOHelper.Log("--- 19. 错误处理测试 ---");
+            LogHandler("--- 19. 错误处理测试 ---");
             var interp = new CommandInterpreter();
 
             // 未找到变量
@@ -914,7 +921,7 @@ namespace EventFramework.Editor
 
         private static void TestComplexExpressions()
         {
-            EOHelper.Log("--- 20. 复杂表达式测试 ---");
+            LogHandler("--- 20. 复杂表达式测试 ---");
             var interp = new CommandInterpreter();
 
             // 链式方法调用
@@ -948,7 +955,7 @@ namespace EventFramework.Editor
 
         private static void TestPrivateMemberAccess()
         {
-            EOHelper.Log("--- 21. 私有成员访问测试 ---");
+            LogHandler("--- 21. 私有成员访问测试 ---");
             var interp = new CommandInterpreter();
 
             var testObj = new TestClass();
@@ -980,7 +987,7 @@ namespace EventFramework.Editor
 
         private static void TestNestedCalls()
         {
-            EOHelper.Log("--- 22. 嵌套调用测试 ---");
+            LogHandler("--- 22. 嵌套调用测试 ---");
             var interp = new CommandInterpreter();
 
             // 嵌套构造函数
