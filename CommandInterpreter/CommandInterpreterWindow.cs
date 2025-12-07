@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System;
 
 namespace EventFramework
 {
@@ -13,7 +14,7 @@ namespace EventFramework
     /// </summary>
     public abstract class CommandInterpreterWindow : EditorWindow
     {
-        private CommandInterpreter interpreter;
+        private CommandInterpreterV2 interpreter;
         private string inputCommand = "";
         private List<string> outputHistory = new List<string>();
         private List<string> commandHistory = new List<string>();
@@ -48,7 +49,7 @@ namespace EventFramework
         private void OnEnable()
         {
             Instance = this;
-            interpreter = new CommandInterpreter();
+            interpreter = new CommandInterpreterV2();
 
             // 注册预设变量（只读，动态计算）
             RegisterPresetVariables();
@@ -174,7 +175,7 @@ namespace EventFramework
             }
             if (GUILayout.Button("单元测试", EditorStyles.toolbarButton, GUILayout.Width(60)))
             {
-                CommandInterpreterTests.RunAllTests();
+                CommandInterpreterTestsV2.RunAllTests();
             }
 
             GUILayout.FlexibleSpace();
