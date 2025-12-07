@@ -67,9 +67,12 @@ namespace EventFramework
 
     public class CommandInterpreterRulerV2
     {
+        /// <summary>
+        /// 缓存类型对象
+        /// </summary>
         protected Dictionary<string, CommandInterpreter_TypeArg> cacheTypes = new Dictionary<string, CommandInterpreter_TypeArg>();
 
-        public virtual Dictionary<Type, int> GetNumericTypesIdx => new Dictionary<Type, int>()
+        protected virtual Dictionary<Type, int> GetNumericTypesIdx => new Dictionary<Type, int>()
         {
             { typeof(sbyte), 0},
             { typeof(byte), 1},
@@ -81,7 +84,7 @@ namespace EventFramework
             { typeof(float), 7},
             { typeof(double), 8},
         };
-        private Dictionary<Type, int> numericTypesIdxCache = null;
+        protected Dictionary<Type, int> numericTypesIdxCache = null;
         public Dictionary<Type, int> NumericTypesIdx
         {
             get
@@ -94,7 +97,7 @@ namespace EventFramework
             }
         }
 
-        public virtual Func<object, CommandInterpreter_NumericArg>[] GetNumericTypesFuncs => new Func<object, CommandInterpreter_NumericArg>[]
+        protected virtual Func<object, CommandInterpreter_NumericArg>[] GetNumericTypesFuncs => new Func<object, CommandInterpreter_NumericArg>[]
         {
             obj => CommandInterpreter_NumericArg.FromInt((sbyte)obj),
             obj => CommandInterpreter_NumericArg.FromInt((byte)obj),
@@ -106,7 +109,7 @@ namespace EventFramework
             obj => CommandInterpreter_NumericArg.FromFloat((float)obj),
             obj => CommandInterpreter_NumericArg.FromFloat((double)obj),
         };
-        private Func<object, CommandInterpreter_NumericArg>[] numericTypesFuncsCache = null;
+        protected Func<object, CommandInterpreter_NumericArg>[] numericTypesFuncsCache = null;
         public Func<object, CommandInterpreter_NumericArg>[] NumericTypesFuncs
         {
             get
@@ -118,22 +121,7 @@ namespace EventFramework
                 return numericTypesFuncsCache;
             }
         }
-        // 从 A转到B转换评分，
-        // 要求A如果可能为负数，则一定是负数，
-        // 比如1000000是uint,而不是int，所以int对
-        //public static int[][] ChangeNumericTypeScore = new int[][]
-        //{
-        //    //        sbyte  byte   short  ushort  int  uint  long  float  double
-        //    new int[] {1000,   -1,   990,   990,   980,  980,  970,  900,   900}, // sbyte
-        //    new int[] {-1,   1000,   990,   990,   980,  980,  970,  900,   900}, // byte
-        //    new int[] {-1,     -1,  1000,   995,   990,  990,  980,  900,   900}, // short
-        //    new int[] {-1,     -1,   -1,   1000,   990,  990,  980,  900,   900}, // ushort
-        //    new int[] {-1,     -1,   -1,    -1,   1000,  -1,   990,  900,   900}, // int
-        //    new int[] {-1,     -1,   -1,    -1,    -1,  1000,  990,  900,   900}, // uint
-        //    new int[] {-1,     -1,   -1,    -1,    -1,   -1,  1000,  900,   900}, // long
-        //    new int[] {-1,     -1,   -1,    -1,    -1,   -1,   -1,  1000,   990}, // float
-        //    new int[] {-1,     -1,   -1,    -1,    -1,   -1,   -1,   990,   1000},// double 高精度转换不考虑溢出
-        //};
+
 
         public static long[][] maxIntLimits = new long[][]
         {
@@ -145,9 +133,6 @@ namespace EventFramework
             new long[] {uint.MinValue, uint.MaxValue },
             new long[] {long.MinValue, long.MaxValue },
         };
-
-
-
 
         /// <summary>
         /// 根据类型和命令参数，计算匹配分数，-1表示不匹配。返回的正数是减分制，越低分越好
@@ -312,7 +297,7 @@ namespace EventFramework
             }
             if (typeName.Contains("<") && typeName.EndsWith(">"))
             {
-                Type genericType = _ParseGenericType(typeName);
+                Type genericType = ParseGenericType(typeName);
                 if (genericType != null)
                 {
                     CommandInterpreter_TypeArg typeArg = new CommandInterpreter_TypeArg(genericType);
@@ -365,87 +350,9 @@ namespace EventFramework
                 default: return null;
             }
         }
-        private Type _ParseGenericType(string typeName)
+        protected virtual Type ParseGenericType(string typeName)
         {
-            int bracketStart = typeName.IndexOf('<');
-            if (bracketStart < 0) return null;
-
-            string baseName = typeName.Substring(0, bracketStart).Trim();
-            string argsStr = typeName.Substring(bracketStart + 1, typeName.Length - bracketStart - 2);
-
-            var typeArgs = _SplitGenericArguments(argsStr);
-            Type genericDef = _FindGenericTypeDefinition(baseName, typeArgs.Length);
-            if (genericDef == null) return null;
-
-            Type[] argTypes = new Type[typeArgs.Length];
-            for (int i = 0; i < typeArgs.Length; i++)
-            {
-                argTypes[i] = FindRawType(typeArgs[i].Trim());
-                if (argTypes[i] == null) return null;
-            }
-
-            try { return genericDef.MakeGenericType(argTypes); }
-            catch { return null; }
-        }
-        private string[] _SplitGenericArguments(string argsStr)
-        {
-            var args = new List<string>();
-            int depth = 0, start = 0;
-
-            for (int i = 0; i < argsStr.Length; i++)
-            {
-                char c = argsStr[i];
-                if (c == '<') depth++;
-                else if (c == '>') depth--;
-                else if (c == ',' && depth == 0)
-                {
-                    args.Add(argsStr.Substring(start, i - start).Trim());
-                    start = i + 1;
-                }
-            }
-            if (start < argsStr.Length) args.Add(argsStr.Substring(start).Trim());
-            return args.ToArray();
-        }
-
-        private Type _FindGenericTypeDefinition(string baseName, int typeParamCount)
-        {
-            var commonGenerics = new Dictionary<string, Type>
-            {
-                { "List", typeof(List<>) },
-                { "Dictionary", typeof(Dictionary<,>) },
-                { "HashSet", typeof(HashSet<>) },
-            };
-
-            if (commonGenerics.TryGetValue(baseName, out Type common) &&
-                common.GetGenericArguments().Length == typeParamCount)
-                return common;
-
-            string fullName = baseName + "`" + typeParamCount;
-            return AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => { try { return a.GetTypes(); } catch { return Type.EmptyTypes; } })
-                .FirstOrDefault(t => t.IsGenericTypeDefinition &&
-                    (t.Name == fullName || t.GetGenericArguments().Length == typeParamCount && t.Name.StartsWith(baseName)));
-        }
-
-        public static object ConvertArg(object arg, Type targetType)
-        {
-            if (arg == null) return null;
-            if (targetType.IsAssignableFrom(arg.GetType())) return arg;
-            return Convert.ChangeType(arg, targetType);
-        }
-        public static object[] ConvertArgsWitdhDefaults(ICommandArg[] args, ParameterInfo[] parameters)
-        {
-            object[] convertedArgs = new object[parameters.Length];
-            int i = 0;
-            for (; i < args.Length; i++)
-            {
-                convertedArgs[i] = ConvertArg(args[i].GetRawValue(), parameters[i].ParameterType);
-            }
-            for (; i < parameters.Length; i++)
-            {
-                convertedArgs[i] = parameters[i].DefaultValue;
-            }
-            return convertedArgs;
+            return CommandInterpreterHelper.ParseGenericType(typeName, FindRawType);
         }
 
     }

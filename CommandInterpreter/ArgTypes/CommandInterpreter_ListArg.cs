@@ -71,7 +71,7 @@ namespace EventFramework
             {
                 try
                 {
-                    rawValue = CommandInterpreterRulerV2.ConvertArg(rawValue, ValType);
+                    rawValue = CommandInterpreterHelper.ConvertArg(rawValue, ValType);
                 }
                 catch
                 {

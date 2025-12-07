@@ -50,7 +50,7 @@ namespace EventFramework
             object key = index.GetRawValue();
             if (KeyType != null && key != null)
             {
-                try { key = CommandInterpreterRulerV2.ConvertArg(key, KeyType); }
+                try { key = CommandInterpreterHelper.ConvertArg(key, KeyType); }
                 catch { /* 保持原样 */ }
             }
 
@@ -65,13 +65,13 @@ namespace EventFramework
 
             if (KeyType != null && key != null)
             {
-                try { key = CommandInterpreterRulerV2.ConvertArg(key, KeyType); }
+                try { key = CommandInterpreterHelper.ConvertArg(key, KeyType); }
                 catch { return false; }
             }
 
             if (ValType != null && val != null)
             {
-                try { val = CommandInterpreterRulerV2.ConvertArg(val, ValType); }
+                try { val = CommandInterpreterHelper.ConvertArg(val, ValType); }
                 catch { return false; }
             }
 

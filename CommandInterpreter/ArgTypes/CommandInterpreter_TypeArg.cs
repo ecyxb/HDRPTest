@@ -56,7 +56,7 @@ namespace EventFramework
                 ConstructorInfo bestMatch = ruler.FindBestMatch(Value.GetConstructors(), args);
                 if (bestMatch != null)
                 {   
-                    object[] convertedArgs = CommandInterpreterRulerV2.ConvertArgsWitdhDefaults(args, bestMatch.GetParameters());
+                    object[] convertedArgs = CommandInterpreterHelper.ConvertArgsWitdhDefaults(args, bestMatch.GetParameters());
                     result = CommandArgFactory.Wrap(bestMatch.Invoke(convertedArgs));
                 }
                 if (result == null && args.Length == 0)

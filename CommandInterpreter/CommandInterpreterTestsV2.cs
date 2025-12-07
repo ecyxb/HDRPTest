@@ -470,6 +470,22 @@ public static Action<string> LogHandler = Console.WriteLine;
             // 取模除零
             var modZero = interp.Evaluate("10 % 0");
             AssertIsError(modZero, "取模除零应返回错误");
+
+            // 一元负号运算符
+            AssertEqual(-5L, interp.Evaluate("-5").GetRawValue(), "负数字面量 -5");
+            AssertEqual(-3.14, interp.Evaluate("-3.14").GetRawValue(), "负数浮点字面量 -3.14");
+
+            interp.RegisterVariable("x", 10);
+            AssertEqual(-10L, interp.Evaluate("-x").GetRawValue(), "一元负号 -x");
+            
+            interp.RegisterVariable("y", 3.5f);
+            var negY = interp.Evaluate("-y");
+            AssertNotError(negY, "一元负号 -y 不应报错");
+    
+            // 负号与表达式
+            AssertEqual(-7L, interp.Evaluate("-(3 + 4)").GetRawValue(), "一元负号 -(3 + 4)");
+            AssertEqual(15L, interp.Evaluate("5 - -10").GetRawValue(), "双负号 5 - -10");
+            AssertEqual(-15L, interp.Evaluate("-5 * 3").GetRawValue(), "负数乘法 -5 * 3");
         }
 
         #endregion

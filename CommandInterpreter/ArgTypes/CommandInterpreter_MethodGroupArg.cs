@@ -28,7 +28,7 @@ namespace EventFramework
             }
             try
             {
-                object[] convertedArgs = CommandInterpreterRulerV2.ConvertArgsWitdhDefaults(args, bestMatch.GetParameters());
+                object[] convertedArgs = CommandInterpreterHelper.ConvertArgsWitdhDefaults(args, bestMatch.GetParameters());
                 object ret = bestMatch.Invoke(Target, convertedArgs);
                 result = bestMatch.ReturnType == typeof(void) ? CommandInterpreter_VoidArg.Instance : CommandArgFactory.Wrap(ret);
                 return ErrorCodes.Success;
