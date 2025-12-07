@@ -247,7 +247,7 @@ public static Action<string> LogHandler = Console.WriteLine;
             if (arg is T)
             {
                 passCount++;
-                LogHandler($"<color=green>[PASS]</color> {testName}"); 
+                LogHandler($"<color=green>[PASS]</color> {testName}");
             }
             else
             {
@@ -477,11 +477,11 @@ public static Action<string> LogHandler = Console.WriteLine;
 
             interp.RegisterVariable("x", 10);
             AssertEqual(-10L, interp.Evaluate("-x").GetRawValue(), "一元负号 -x");
-            
+
             interp.RegisterVariable("y", 3.5f);
             var negY = interp.Evaluate("-y");
             AssertNotError(negY, "一元负号 -y 不应报错");
-    
+
             // 负号与表达式
             AssertEqual(-7L, interp.Evaluate("-(3 + 4)").GetRawValue(), "一元负号 -(3 + 4)");
             AssertEqual(15L, interp.Evaluate("5 - -10").GetRawValue(), "双负号 5 - -10");
@@ -985,6 +985,29 @@ public static Action<string> LogHandler = Console.WriteLine;
             interp.Execute("b = 20");
             var halfSum = interp.Evaluate("(a + b) / 2");
             AssertNotError(halfSum, "(a + b) / 2 不应报错");
+
+            // 运算符重载测试 - Vector3
+            var v1 = interp.Evaluate("new Vector3(1, 2, 3)");
+            var v2 = interp.Evaluate("new Vector3(4, 5, 6)");
+            interp.RegisterVariable("v1", v1.GetRawValue());
+            interp.RegisterVariable("v2", v2.GetRawValue());
+
+            // Vector3 + Vector3
+            var vAdd = interp.Evaluate("v1 + v2");
+            AssertNotError(vAdd, "Vector3 + Vector3 不应报错");
+            AssertRawType<Vector3>(vAdd, "Vector3 + Vector3 返回 Vector3");
+            AssertEqual(new Vector3(5, 7, 9), vAdd.GetRawValue(), "Vector3(1,2,3) + Vector3(4,5,6) = Vector3(5,7,9)");
+
+            // Vector3 - Vector3
+            var vSub = interp.Evaluate("v2 - v1");
+            AssertNotError(vSub, "Vector3 - Vector3 不应报错");
+            AssertEqual(new Vector3(3, 3, 3), vSub.GetRawValue(), "Vector3(4,5,6) - Vector3(1,2,3) = Vector3(3,3,3)");
+
+            // Vector3 * float
+            interp.RegisterVariable("scalar", 2.0f);
+            var vMul = interp.Evaluate("v1 * scalar");
+            AssertNotError(vMul, "Vector3 * float 不应报错");
+            AssertEqual(new Vector3(2, 4, 6), vMul.GetRawValue(), "Vector3(1,2,3) * 2 = Vector3(2,4,6)");
         }
 
         #endregion

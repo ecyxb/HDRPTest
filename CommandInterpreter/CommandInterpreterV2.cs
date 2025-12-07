@@ -509,7 +509,8 @@ namespace EventFramework
                             functor.Invoke(Ruler, out current, args);
                             if (current.IsError()) return current;
                         }
-                        else return CommandInterpreter_ErrorArg.Create(ErrorCodes.NotCallable, methodName);
+                        else 
+                            return CommandInterpreter_ErrorArg.Create(ErrorCodes.NotCallable, methodName);
                     }
                     else
                     {
@@ -612,15 +613,18 @@ namespace EventFramework
                 return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, $"{op} 运算符需要布尔值");
             }
 
+            // 处理相等运算符
             if (op == "==" || op == "!=")
             {
                 bool eq = Equals(left.GetRawValue(), right.GetRawValue());
                 return CommandInterpreter_BoolArg.From(op == "==" ? eq : !eq);
             }
 
+            // 处理字符串链接的情况
             if (op == "+" && (left is CommandInterpreter_StringArg || right is CommandInterpreter_StringArg))
                 return new CommandInterpreter_StringArg((left.GetRawValue()?.ToString() ?? "null") + (right.GetRawValue()?.ToString() ?? "null"));
 
+            //处理内置数值运算，主要针对整形和浮点型
             if (left.CanNumeric() && right.CanNumeric())
             {
                 var ln = (INumeric)left;
@@ -641,8 +645,96 @@ namespace EventFramework
                 }
             }
 
+            // 尝试调用运算符重载
+            ICommandArg overloadResult = TryInvokeOperatorOverload(left, op, right);
+            if (overloadResult != null) return overloadResult;
+
             return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType,
                 $"无法对 {left.GetType().Name} 和 {right.GetType().Name} 执行 {op} 运算");
+        }
+
+
+
+        /// <summary>
+        /// 尝试调用运算符重载方法
+        /// </summary>
+        private ICommandArg TryInvokeOperatorOverload(ICommandArg left, string op, ICommandArg right)
+        {
+            if (!Ruler.OperatorMethodNames.TryGetValue(op, out string methodName))
+                return null;
+
+            object leftRaw = left.GetRawValue();
+            object rightRaw = right.GetRawValue();
+            ICommandArg result = null;
+
+            if (leftRaw == null) return null;
+            if (rightRaw == null) return null;
+            var leftTypeArg = new CommandInterpreter_TypeArg(leftRaw.GetType());
+            var rightTypeArg = new CommandInterpreter_TypeArg(rightRaw.GetType());
+
+            ICommandArg leftMethod = leftTypeArg.GetMember(methodName);
+            if (!leftMethod.IsError() && leftMethod.IsFunctor && leftMethod is IFunctor leftFunctor)
+            {
+                ICommandArg[] args = new ICommandArg[] { left, right };
+                leftFunctor.Invoke(Ruler, out result, args);
+                if (!result.IsError())
+                {
+                    return result;
+                }
+            }
+            ICommandArg rightMethod = rightTypeArg.GetMember(methodName);
+            if (!rightMethod.IsError() && rightMethod.IsFunctor && rightMethod is IFunctor rightFunctor)
+            {
+                ICommandArg[] args = new ICommandArg[] { left, right };
+                rightFunctor.Invoke(Ruler, out result, args);
+                if (!result.IsError())
+                {
+                    return result;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 尝试将数值转换为目标类型
+        /// </summary>
+        private object TryConvertNumeric(object value, Type targetType)
+        {
+            if (value == null) return null;
+
+            try
+            {
+                Type valueType = value.GetType();
+
+                // 如果类型已经兼容，直接返回
+                if (targetType.IsAssignableFrom(valueType))
+                    return value;
+
+                // 数值类型之间的转换
+                if (IsNumericType(valueType) && IsNumericType(targetType))
+                {
+                    return Convert.ChangeType(value, targetType);
+                }
+            }
+            catch
+            {
+                // 转换失败
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 判断是否是数值类型
+        /// </summary>
+        private bool IsNumericType(Type type)
+        {
+            return type == typeof(sbyte) || type == typeof(byte) ||
+            type == typeof(short) || type == typeof(ushort) ||
+                 type == typeof(int) || type == typeof(uint) ||
+              type == typeof(long) || type == typeof(ulong) ||
+                type == typeof(float) || type == typeof(double) ||
+               type == typeof(decimal);
         }
 
         private int FindOperatorPosition(string expr, string[] operators)
@@ -859,7 +951,6 @@ namespace EventFramework
             }
             return lastBracket;
         }
-
 
         #endregion
     }

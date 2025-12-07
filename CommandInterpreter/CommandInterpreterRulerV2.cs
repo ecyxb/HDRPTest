@@ -134,6 +134,38 @@ namespace EventFramework
             new long[] {long.MinValue, long.MaxValue },
         };
 
+
+        /// <summary>
+        /// 运算符到方法名的映射
+        /// </summary>
+        public virtual Dictionary<string, string> GetOperatorMethodNames => new Dictionary<string, string>
+        {
+            { "+", "op_Addition" },
+            { "-", "op_Subtraction" },
+            { "*", "op_Multiply" },
+            { "/", "op_Division" },
+            { "%", "op_Modulus" },
+            { "==", "op_Equality" },
+            { "!=", "op_Inequality" },
+            { "<", "op_LessThan" },
+            { ">", "op_GreaterThan" },
+            { "<=", "op_LessThanOrEqual" },
+            { ">=", "op_GreaterThanOrEqual" },
+        };
+        protected Dictionary<string, string> operatorMethodNamesCache = null;
+        public Dictionary<string, string> OperatorMethodNames
+        {
+            get
+            {
+                if (operatorMethodNamesCache == null)
+                {
+                    operatorMethodNamesCache = GetOperatorMethodNames;
+                }
+                return operatorMethodNamesCache;
+            }
+        }
+
+
         /// <summary>
         /// 根据类型和命令参数，计算匹配分数，-1表示不匹配。返回的正数是减分制，越低分越好
         /// </summary>
