@@ -247,7 +247,7 @@ public static Action<string> LogHandler = Console.WriteLine;
             if (arg is T)
             {
                 passCount++;
-                LogHandler($"<color=green>[PASS]</color> {testName}");
+                LogHandler($"<color=green>[PASS]</color> {testName}"); 
             }
             else
             {

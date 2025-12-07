@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +7,7 @@ using System.Reflection;
 namespace EventFramework
 {
 
-    #region À©Õ¹·½·¨
+    #region æ‰©å±•æ–¹æ³•
 
     public static class CommandArgExtensions
     {
@@ -20,10 +20,10 @@ namespace EventFramework
 
     #endregion
 
-    #region ´íÎóÂë
+    #region é”™è¯¯ç 
 
     public static class ErrorCodes
-    { 
+    {
         public const int Success = 0;
         public const int InvalidArgumentCount = 1;
         public const int InvalidArgumentType = 2;
@@ -51,14 +51,14 @@ namespace EventFramework
 
     #endregion
 
-    #region ²ÎÊıÀàĞÍÊµÏÖ
+    #region å‚æ•°ç±»å‹å®ç°
 
 
     #endregion
 
-    #region ³ÉÔ±·ÃÎÊ¸¨ÖúÀà
+    #region æˆå‘˜è®¿é—®è¾…åŠ©ç±»
 
-    /// <summary>³ÉÔ±·ÃÎÊ¸¨ÖúÀà£¬Ìá¹©Í¨ÓÃµÄ³ÉÔ±·ÃÎÊÊµÏÖ</summary>
+    /// <summary>æˆå‘˜è®¿é—®è¾…åŠ©ç±»ï¼Œæä¾›é€šç”¨çš„æˆå‘˜è®¿é—®å®ç°</summary>
     public static class MemberAccessHelper
     {
         private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -125,7 +125,7 @@ namespace EventFramework
 
     #endregion
 
-    #region ¹¤³§Àà
+    #region å·¥å‚ç±»
 
     public static class CommandArgFactory
     {
@@ -159,14 +159,14 @@ namespace EventFramework
             if (expr.StartsWith("\"") && expr.EndsWith("\"") && expr.Length >= 2)
                 return new CommandInterpreter_StringArg(expr.Substring(1, expr.Length - 2));
 
-            // Ö§³Ö¸ºÊı¸¡µãÊı×ÖÃæÁ¿
+            // æ”¯æŒè´Ÿæ•°æµ®ç‚¹æ•°å­—é¢é‡
             if (expr.Contains(".") || expr.EndsWith("f") || expr.EndsWith("F"))
             {
                 string numStr = expr.TrimEnd('f', 'F');
                 if (double.TryParse(numStr, out double dVal)) return CommandInterpreter_NumericArg.FromFloat(dVal);
             }
 
-            // Ö§³Ö¸ºÊıÕûÊı×ÖÃæÁ¿
+            // æ”¯æŒè´Ÿæ•°æ•´æ•°å­—é¢é‡
             if (int.TryParse(expr, out int iVal)) return CommandInterpreter_NumericArg.FromInt(iVal);
             if (long.TryParse(expr, out long lVal2)) return CommandInterpreter_NumericArg.FromInt(lVal2);
             if ((expr.EndsWith("L") || expr.EndsWith("l")) && long.TryParse(expr.TrimEnd('L', 'l'), out long lVal))
@@ -178,10 +178,10 @@ namespace EventFramework
 
     #endregion
 
-    #region ½âÊÍÆ÷ V2
+    #region è§£é‡Šå™¨ V2
 
     /// <summary>
-    /// ÃüÁî½âÊÍÆ÷ V2 - Ê¹ÓÃ ICommandArg ×÷Îª±äÁ¿´æ´¢ÀàĞÍ
+    /// å‘½ä»¤è§£é‡Šå™¨ V2 - ä½¿ç”¨ ICommandArg ä½œä¸ºå˜é‡å­˜å‚¨ç±»å‹
     /// </summary>
     public class CommandInterpreterV2
     {
@@ -189,7 +189,7 @@ namespace EventFramework
         private readonly Dictionary<string, Func<ICommandArg>> _presetVariables = new Dictionary<string, Func<ICommandArg>>();
         public CommandInterpreterRulerV2 Ruler { get; private set; } = new CommandInterpreterRulerV2();
 
-        #region ¹«¹² API
+        #region å…¬å…± API
 
         public void RegisterVariable(string name, object obj) =>
             _variables[name] = CommandArgFactory.Wrap(obj);
@@ -203,8 +203,36 @@ namespace EventFramework
         public string Execute(string input)
         {
             input = input?.Trim();
-            if (string.IsNullOrEmpty(input)) return "ÃüÁîÎª¿Õ";
+            if (string.IsNullOrEmpty(input)) return "å‘½ä»¤ä¸ºç©º";
 
+            // å¤šè¯­å¥æ‰§è¡Œæ”¯æŒï¼šç”¨åˆ†å·åˆ†å‰²
+            var statements = SplitStatements(input);
+            if (statements.Length > 1)
+            {
+                var results = new List<string>();
+                foreach (var stmt in statements)
+                {
+                    string trimmed = stmt.Trim();
+                    if (string.IsNullOrEmpty(trimmed)) continue;
+
+                    string result = ExecuteSingle(trimmed);
+                    results.Add(result);
+
+                    // å¦‚æœé‡åˆ°é”™è¯¯ï¼Œåœæ­¢æ‰§è¡Œåç»­è¯­å¥
+                    if (result.StartsWith("Error:") || result.Contains("å¤±è´¥"))
+                    {
+                        results.Add("(åç»­è¯­å¥æœªæ‰§è¡Œ)");
+                        break;
+                    }
+                }
+                return string.Join("\n", results);
+            }
+
+            return ExecuteSingle(input);
+        }
+
+        private string ExecuteSingle(string input)
+        {
             int assignIdx = FindAssignmentOperator(input);
             if (assignIdx > 0)
             {
@@ -213,10 +241,10 @@ namespace EventFramework
 
                 string baseVar = left.Split('.')[0].Split('[')[0].Trim();
                 if (baseVar.StartsWith("#"))
-                    return $"Error: Ô¤Éè±äÁ¿ {baseVar} ÊÇÖ»¶ÁµÄ£¬²»ÄÜ¸³Öµ";
+                    return $"Error: é¢„è®¾å˜é‡ {baseVar} æ˜¯åªè¯»çš„ï¼Œä¸èƒ½èµ‹å€¼";
 
                 ICommandArg value = Evaluate(right);
-                if (value.IsError()) return $"¸³ÖµÊ§°Ü: {value.Format()}";
+                if (value.IsError()) return $"èµ‹å€¼å¤±è´¥: {value.Format()}";
 
                 return AssignValue(left, value);
             }
@@ -224,22 +252,30 @@ namespace EventFramework
             {
                 ICommandArg result = Evaluate(input);
                 if (result.IsError()) return result.Format();
-                if (result is CommandInterpreter_VoidArg) return "Ö´ĞĞ³É¹¦";
-                return $"½á¹û: {result.Format()}";
+                if (result is CommandInterpreter_VoidArg) return "æ‰§è¡ŒæˆåŠŸ";
+                return $"ç»“æœ: {result.Format()}";
             }
+        }
+
+        /// <summary>
+        /// åˆ†å‰²å¤šè¯­å¥
+        /// </summary>
+        private string[] SplitStatements(string input)
+        {
+            return input.Split(';');
         }
 
         public ICommandArg Evaluate(string expr) => EvaluateExpression(expr?.Trim() ?? string.Empty);
 
         public object GetVariable(string name)
         {
-            if(_variables.TryGetValue(name, out var value))
+            if (_variables.TryGetValue(name, out var value))
             {
                 return value.GetRawValue();
             }
             return null;
         }
-           
+
 
         public IEnumerable<string> GetVariableNames() => _variables.Keys;
         public IEnumerable<string> GetPresetVariableNames() => _presetVariables.Keys;
@@ -247,14 +283,14 @@ namespace EventFramework
 
         #endregion
 
-        #region ¸³Öµ´¦Àí
+        #region èµ‹å€¼å¤„ç†
 
         private string AssignValue(string target, ICommandArg value)
         {
             if (!target.Contains(".") && !target.Contains("["))
             {
                 _variables[target] = value;
-                return $"±äÁ¿ {target} ÒÑ¸³Öµ = {value.Format()}";
+                return $"å˜é‡ {target} å·²èµ‹å€¼ = {value.Format()}";
             }
 
             int lastDot = FindLastMemberAccess(target);
@@ -266,18 +302,18 @@ namespace EventFramework
                 string indexStr = target.Substring(lastBracket + 1, target.Length - lastBracket - 2);
 
                 ICommandArg container = Evaluate(containerExpr);
-                if (container.IsError()) return $"¸³ÖµÊ§°Ü: {container.Format()}";
+                if (container.IsError()) return $"èµ‹å€¼å¤±è´¥: {container.Format()}";
 
                 ICommandArg indexArg = Evaluate(indexStr);
-                if (indexArg.IsError()) return $"¸³ÖµÊ§°Ü: {indexArg.Format()}";
+                if (indexArg.IsError()) return $"èµ‹å€¼å¤±è´¥: {indexArg.Format()}";
 
                 if (container is IIndexable indexable)
                 {
                     if (indexable.SetAt(indexArg, value))
-                        return $"{target} ÒÑ¸³Öµ = {value.Format()}";
-                    return $"Error: Ë÷Òı¸³ÖµÊ§°Ü";
+                        return $"{target} å·²èµ‹å€¼ = {value.Format()}";
+                    return $"Error: ç´¢å¼•èµ‹å€¼å¤±è´¥";
                 }
-                return $"Error: {containerExpr} ²»ÊÇ¿ÉË÷ÒıÀàĞÍ";
+                return $"Error: {containerExpr} ä¸æ˜¯å¯ç´¢å¼•ç±»å‹";
             }
 
             if (lastDot > 0)
@@ -286,21 +322,21 @@ namespace EventFramework
                 string memberName = target.Substring(lastDot + 1);
 
                 ICommandArg parent = Evaluate(parentExpr);
-                if (parent.IsError()) return $"¸³ÖµÊ§°Ü: {parent.Format()}";
+                if (parent.IsError()) return $"èµ‹å€¼å¤±è´¥: {parent.Format()}";
 
                 if (parent is IMemberAccessible accessible)
                 {
                     if (accessible.SetMember(memberName, value))
                     {
                         UpdateValueTypeVariable(parentExpr, parent);
-                        return $"{target} ÒÑ¸³Öµ = {value.Format()}";
+                        return $"{target} å·²èµ‹å€¼ = {value.Format()}";
                     }
-                    return $"Error: ÎŞ·¨ÉèÖÃ³ÉÔ± {memberName}";
+                    return $"Error: æ— æ³•è®¾ç½®æˆå‘˜ {memberName}";
                 }
-                return $"Error: {parentExpr} ²»Ö§³Ö³ÉÔ±·ÃÎÊ";
+                return $"Error: {parentExpr} ä¸æ”¯æŒæˆå‘˜è®¿é—®";
             }
 
-            return $"Error: ÎŞ·¨½âÎö¸³ÖµÄ¿±ê: {target}";
+            return $"Error: æ— æ³•è§£æèµ‹å€¼ç›®æ ‡: {target}";
         }
 
         private void UpdateValueTypeVariable(string expr, ICommandArg value)
@@ -311,30 +347,30 @@ namespace EventFramework
 
         #endregion
 
-        #region ±í´ïÊ½ÇóÖµ
+        #region è¡¨è¾¾å¼æ±‚å€¼
 
         private ICommandArg EvaluateExpression(string expr)
         {
             if (string.IsNullOrEmpty(expr))
-                return CommandInterpreter_ErrorArg.Create(ErrorCodes.ParseError, "¿Õ±í´ïÊ½");
+                return CommandInterpreter_ErrorArg.Create(ErrorCodes.ParseError, "ç©ºè¡¨è¾¾å¼");
 
-            // new ¹¹Ôìº¯Êı
+            // new æ„é€ å‡½æ•°
             if (expr.StartsWith("new "))
                 return EvaluateConstructor(expr.Substring(4).Trim());
 
-            // ·½·¨/º¯Êıµ÷ÓÃ
+            // æ–¹æ³•/å‡½æ•°è°ƒç”¨
             int callIdx = FindMethodCallStart(expr);
             if (callIdx > 0 && expr.EndsWith(")"))
             {
                 string funcExpr = expr.Substring(0, callIdx).Trim();
                 string argsExpr = expr.Substring(callIdx + 1, expr.Length - callIdx - 2);
 
-                // Ö»ÓĞµ± funcExpr ²»°üº¬³ÉÔ±·ÃÎÊ·û '.' Ê±£¬²Å³¢ÊÔ×÷ÎªÀàĞÍÃû²éÕÒ
-                // ÕâÑù "str.Trim()" ²»»á°Ñ "str.Trim" µ±×÷ÀàĞÍÃû
+                // åªæœ‰å½“ funcExpr ä¸åŒ…å«æˆå‘˜è®¿é—®ç¬¦ '.' æ—¶ï¼Œæ‰å°è¯•ä½œä¸ºç±»å‹åæŸ¥æ‰¾
+                // è¿™æ · "str.Trim()" ä¸ä¼šæŠŠ "str.Trim" å½“ä½œç±»å‹å
                 if (!funcExpr.Contains("."))
                 {
                     CommandInterpreter_TypeArg type = Ruler.FindType(funcExpr);
-                    if(type != null) return type.InvokeConstructor(Ruler, ParseArguments(argsExpr));
+                    if (type != null) return type.InvokeConstructor(Ruler, ParseArguments(argsExpr));
                 }
 
                 ICommandArg func = EvaluateExpression(funcExpr);
@@ -349,11 +385,11 @@ namespace EventFramework
                 return CommandInterpreter_ErrorArg.Create(ErrorCodes.NotCallable, funcExpr);
             }
 
-            // ÔËËã·û±í´ïÊ½
+            // è¿ç®—ç¬¦è¡¨è¾¾å¼
             ICommandArg opResult = TryEvaluateOperator(expr);
             if (opResult != null) return opResult;
 
-            // Éî²ãÒıÓÃ
+            // æ·±å±‚å¼•ç”¨
             return ResolveReference(expr);
         }
 
@@ -370,10 +406,10 @@ namespace EventFramework
 
                 ICommandArg lengthArg = EvaluateExpression(lengthStr);
                 if (!(lengthArg is INumeric num))
-                    return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, "Êı×é³¤¶È±ØĞëÊÇÕûÊı");
+                    return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, "æ•°ç»„é•¿åº¦å¿…é¡»æ˜¯æ•´æ•°");
 
                 int length = (int)num.ToLong();
-                if (length < 0) return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, "Êı×é³¤¶È²»ÄÜÎª¸ºÊı");
+                if (length < 0) return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, "æ•°ç»„é•¿åº¦ä¸èƒ½ä¸ºè´Ÿæ•°");
 
                 return CommandArgFactory.Wrap(Array.CreateInstance(elementType, length));
             }
@@ -387,7 +423,7 @@ namespace EventFramework
             }
 
             if (!constructorExpr.EndsWith(")"))
-                return CommandInterpreter_ErrorArg.Create(ErrorCodes.ParseError, "¹¹Ôìº¯ÊıÓï·¨´íÎó");
+                return CommandInterpreter_ErrorArg.Create(ErrorCodes.ParseError, "æ„é€ å‡½æ•°è¯­æ³•é”™è¯¯");
 
             string ctorTypeName = constructorExpr.Substring(0, parenIdx).Trim();
             string ctorArgs = constructorExpr.Substring(parenIdx + 1, constructorExpr.Length - parenIdx - 2);
@@ -418,7 +454,7 @@ namespace EventFramework
                 {
                     return indexable.GetAt(indexArg);
                 }
-                return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, $"{containerExpr} ²»ÊÇ¿ÉË÷ÒıÀàĞÍ");
+                return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, $"{containerExpr} ä¸æ˜¯å¯ç´¢å¼•ç±»å‹");
             }
 
             var parts = SplitByDot(expr);
@@ -434,13 +470,13 @@ namespace EventFramework
             }
             else if (first.StartsWith("#"))
             {
-                // ÏÈ¼ì²éÄÚÖÃº¯Êı
+                // å…ˆæ£€æŸ¥å†…ç½®å‡½æ•°
                 if (_presetVariables.TryGetValue(first, out var getter))
                 {
                     try { current = getter(); }
                     catch (Exception ex) { return CommandInterpreter_ErrorArg.Create(ErrorCodes.UnknownError, ex.Message); }
                 }
-                else return CommandInterpreter_ErrorArg.Create(ErrorCodes.MemberNotFound, $"Ô¤Éè±äÁ¿ {first}");
+                else return CommandInterpreter_ErrorArg.Create(ErrorCodes.MemberNotFound, $"é¢„è®¾å˜é‡ {first}");
             }
             else if (_variables.TryGetValue(first, out var variable))
             {
@@ -449,7 +485,7 @@ namespace EventFramework
             else
             {
                 current = Ruler.FindType(first);
-                if (current == null) return CommandInterpreter_ErrorArg.Create(ErrorCodes.MemberNotFound, $"±äÁ¿»òÀàĞÍ {first}");
+                if (current == null) return CommandInterpreter_ErrorArg.Create(ErrorCodes.MemberNotFound, $"å˜é‡æˆ–ç±»å‹ {first}");
             }
 
             for (int i = 1; i < parts.Length; i++)
@@ -481,7 +517,7 @@ namespace EventFramework
                         if (current.IsError()) return current;
                     }
                 }
-                else return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, $"{parts[i - 1]} ²»Ö§³Ö³ÉÔ±·ÃÎÊ");
+                else return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, $"{parts[i - 1]} ä¸æ”¯æŒæˆå‘˜è®¿é—®");
             }
 
             return current;
@@ -489,7 +525,7 @@ namespace EventFramework
 
         #endregion
 
-        #region ÔËËã·û´¦Àí
+        #region è¿ç®—ç¬¦å¤„ç†
 
         private static readonly string[][] OperatorsByPriority =
         {
@@ -517,22 +553,22 @@ namespace EventFramework
                     return EvaluateExpression(expr.Substring(1, expr.Length - 2));
             }
 
-            // ´¦ÀíÒ»ÔªÔËËã·û !
+            // å¤„ç†ä¸€å…ƒè¿ç®—ç¬¦ !
             if (expr.StartsWith("!") && !expr.StartsWith("!="))
             {
                 ICommandArg operand = EvaluateExpression(expr.Substring(1));
                 if (operand is CommandInterpreter_BoolArg b) return CommandInterpreter_BoolArg.From(!b.Value);
-                return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, "! ÔËËã·ûĞèÒª²¼¶ûÖµ");
+                return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, "! è¿ç®—ç¬¦éœ€è¦å¸ƒå°”å€¼");
             }
 
-            // ´¦ÀíÒ»Ôª¸ººÅÔËËã·û -
+            // å¤„ç†ä¸€å…ƒè´Ÿå·è¿ç®—ç¬¦ -
             if (expr.StartsWith("-") && expr.Length > 1)
             {
-                // ÏÈ³¢ÊÔ½âÎöÎª¸ºÊı×ÖÃæÁ¿
+                // å…ˆå°è¯•è§£æä¸ºè´Ÿæ•°å­—é¢é‡
                 ICommandArg literal = CommandArgFactory.ParseLiteral(expr);
                 if (literal != null) return literal;
 
-                // ·ñÔò×÷ÎªÒ»ÔªÔËËã·û´¦Àí
+                // å¦åˆ™ä½œä¸ºä¸€å…ƒè¿ç®—ç¬¦å¤„ç†
                 ICommandArg operand = EvaluateExpression(expr.Substring(1));
                 if (operand.IsError()) return operand;
                 if (operand is INumeric num)
@@ -542,7 +578,7 @@ namespace EventFramework
                     else
                         return CommandInterpreter_NumericArg.FromFloat(-num.ToDouble());
                 }
-                return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, "- ÔËËã·ûĞèÒªÊıÖµ");
+                return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, "- è¿ç®—ç¬¦éœ€è¦æ•°å€¼");
             }
 
             foreach (var operators in OperatorsByPriority)
@@ -573,7 +609,7 @@ namespace EventFramework
             {
                 if (left is CommandInterpreter_BoolArg lb && right is CommandInterpreter_BoolArg rb)
                     return CommandInterpreter_BoolArg.From(op == "&&" ? lb.Value && rb.Value : lb.Value || rb.Value);
-                return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, $"{op} ÔËËã·ûĞèÒª²¼¶ûÖµ");
+                return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType, $"{op} è¿ç®—ç¬¦éœ€è¦å¸ƒå°”å€¼");
             }
 
             if (op == "==" || op == "!=")
@@ -606,7 +642,7 @@ namespace EventFramework
             }
 
             return CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentType,
-                $"ÎŞ·¨¶Ô {left.GetType().Name} ºÍ {right.GetType().Name} Ö´ĞĞ {op} ÔËËã");
+                $"æ— æ³•å¯¹ {left.GetType().Name} å’Œ {right.GetType().Name} æ‰§è¡Œ {op} è¿ç®—");
         }
 
         private int FindOperatorPosition(string expr, string[] operators)
@@ -664,7 +700,7 @@ namespace EventFramework
 
         #endregion
 
-        #region ²ÎÊı½âÎö
+        #region å‚æ•°è§£æ
 
         private ICommandArg[] ParseArguments(string argsExpr)
         {
@@ -726,7 +762,7 @@ namespace EventFramework
 
         #endregion
 
-        #region ¸¨Öú·½·¨
+        #region è¾…åŠ©æ–¹æ³•
 
         private int FindAssignmentOperator(string input)
         {
