@@ -51,12 +51,18 @@ namespace EventFramework
 
     #endregion
 
+    public interface ICanRegisterPresetCommand
+    {
+        void RegisterPresetVariable(string name, Func<object> obj);
+        void RegisterPresetFunc(string name, object func);
+    }
+
     #region 解释器 V2
 
     /// <summary>
     /// 命令解释器 V2 - 使用 ICommandArg 作为变量存储类型
     /// </summary>
-    public class CommandInterpreterV2
+    public class CommandInterpreterV2 : ICanRegisterPresetCommand
     {
         private readonly Dictionary<string, ICommandArg> _variables = new Dictionary<string, ICommandArg>();
         private readonly Dictionary<string, Func<ICommandArg>> _presetVariables = new Dictionary<string, Func<ICommandArg>>();
@@ -71,6 +77,11 @@ namespace EventFramework
         {
             if (!name.StartsWith("#")) name = "#" + name;
             _presetVariables[name] = () => CommandArgFactory.Wrap(getter());
+        }
+        public void RegisterPresetFunc(string name, object func)
+        {
+            if (!name.StartsWith("#")) name = "#" + name;
+            _presetVariables[name] = () => CommandArgFactory.Wrap(func);
         }
 
         public string Execute(string input)
@@ -113,8 +124,6 @@ namespace EventFramework
                 string right = input.Substring(assignIdx + 1).Trim();
 
                 string baseVar = left.Split('.')[0].Split('[')[0].Trim();
-                if (baseVar.StartsWith("#"))
-                    return $"Error: 预设变量 {baseVar} 是只读的，不能赋值";
 
                 ICommandArg value = Evaluate(right);
                 if (value.IsError()) return $"赋值失败: {value.Format()}";
@@ -162,6 +171,8 @@ namespace EventFramework
         {
             if (!target.Contains(".") && !target.Contains("["))
             {
+                if (target.StartsWith("#"))
+                    return $"Error: 预设变量 {target} 是只读的，不能赋值";
                 _variables[target] = value;
                 return $"变量 {target} 已赋值 = {value.Format()}";
             }

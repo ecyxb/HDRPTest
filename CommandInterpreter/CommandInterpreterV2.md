@@ -1,7 +1,7 @@
-# CommandInterpreter 命令解释器文档
+# CommandInterpreterV2 命令解释器文档
 
 ## 概述
-CommandInterpreter 是一个运行时命令解释器，支持变量存储、表达式求值、方法调用等功能。支持本地执行和远程广播到逻辑线程执行。
+CommandInterpreterV2 是一个运行时命令解释器，支持变量存储、表达式求值、方法调用等功能。支持本地执行和远程广播到逻辑线程执行。
 
 ---
 
@@ -9,10 +9,13 @@ CommandInterpreter 是一个运行时命令解释器，支持变量存储、表�
 
 | 文件 | 说明 |
 |------|------|
-| `CommandInterpreter.cs` | 核心解释器，负责解析和执行命令 |
+| `CommandInterpreterV2.cs` | 核心解释器，负责解析和执行命令 |
 | `CommandInterpreterWindow.cs` | Unity 编辑器窗口 GUI |
 | `CommandInterpreterProxy.cs` | UDP 接收代理，用于逻辑线程接收远程命令 |
-| `CommandInterpreterTests.cs` | 单元测试 |
+| `CommandInterpreterTestsV2.cs` | 单元测试 |
+| `ArgTypes` - 文件夹 | 各种object对应的类型 |
+| `CommandInterpreterHelper.cs` | 一些帮助方法 |
+| `CommandInterpreterRulerV2.cs` | 规定接口、匹配函数、匹配内置类型 |
 
 ---
 
@@ -174,6 +177,7 @@ new Stack<int>()
 ```
 
 ### 18. 复杂表达式
+
 ```csharp
 Mathf.Max(a + b, c * 2)                    // 方法参数中使用运算符
 list[Mathf.Min(i, list.Count - 1)]         // 索引中使用方法调用
@@ -194,6 +198,25 @@ vectors[0].x                               // 访问数组元素的成员
 list[0].transform.position                 // 索引后深层访问
 arr[i].Method()                            // 数组元素方法调用
 ```
+
+### 21. 泛型方法
+
+```csharp
+#ui.Get<UIPanel>() 							// 根据类型获取UI
+#ui.Get<UILogin>().binding.BtnLogin.GetComponent<RectTransform>() //也支持链式
+```
+
+### 22. 多语句执行
+
+```csharp
+x = 1; y = 2; z = 3						// 按封号分割，不允许字符串里带封号		
+```
+
+
+
+
+
+
 
 ---
 
@@ -243,13 +266,7 @@ Action<int> a = x => Debug.Log(x)
 from x in list where x > 0 select x
 ```
 
-### 3. 多语句执行
-```csharp
-// ❌ 不支持
-x = 1; y = 2; z = 3
-```
-
-### 4. 控制流语句
+### 3. 控制流语句
 ```csharp
 // ❌ 不支持
 if (x > 0) y = 1
@@ -258,7 +275,7 @@ while (true) { }
 switch (x) { }
 ```
 
-### 5. 变量声明带类型
+### 4. 变量声明带类型
 ```csharp
 // ❌ 不支持
 int x = 10
@@ -266,7 +283,7 @@ Vector3 v = new Vector3()
 var list = new List<int>()
 ```
 
-### 6. 复合赋值运算符
+### 5. 复合赋值运算符
 ```csharp
 // ❌ 不支持
 x += 1
@@ -279,13 +296,13 @@ x--
 --x
 ```
 
-### 7. 三元运算符
+### 6. 三元运算符
 ```csharp
 // ❌ 不支持
 x > 0 ? "positive" : "negative"
 ```
 
-### 8. null 合并运算符
+### 7. null 合并运算符
 ```csharp
 // ❌ 不支持
 x ?? defaultValue
@@ -293,7 +310,7 @@ x?.property
 x ??= defaultValue
 ```
 
-### 9. typeof / is / as 运算符
+### 8. typeof / is / as 运算符
 ```csharp
 // ❌ 不支持
 typeof(Vector3)
@@ -301,59 +318,58 @@ obj is GameObject
 obj as Transform
 ```
 
-### 10. 数组初始化器
+### 9. 数组初始化器
 ```csharp
 // ❌ 不支持
 new int[] { 1, 2, 3 }
 new Vector3[] { Vector3.zero, Vector3.one }
 ```
 
-### 11. 对象初始化器
+### 10. 对象初始化器
 ```csharp
 // ❌ 不支持
 new Person { Name = "Tom", Age = 20 }
 ```
 
-### 12. 匿名类型
+### 11. 匿名类型
 ```csharp
 // ❌ 不支持
 new { Name = "Tom", Age = 20 }
 ```
 
-### 13. 字符串插值
+### 12. 字符串插值
 ```csharp
 // ❌ 不支持
 $"Hello {name}"
 $"Value: {x:F2}"
 ```
 
-### 14. async/await
+### 13. async/await
 ```csharp
 // ❌ 不支持
 await Task.Delay(1000)
 async () => { }
 ```
 
-### 15. throw 表达式
+### 14. throw 表达式
 ```csharp
 // ❌ 不支持
 throw new Exception("error")
 ```
 
-### 16. using 语句
+### 15. using 语句
 ```csharp
 // ❌ 不支持
 using (var stream = File.Open(...)) { }
 ```
 
-### 17. 预设变量赋值
+### 16. 预设变量赋值
 ```csharp
 // ❌ 不支持（预设变量只读）
 #selected = obj
-#t.position = Vector3.zero   // 注意：这个也不支持
 ```
 
-### 18. 位运算符
+### 17. 位运算符
 ```csharp
 // ❌ 不支持
 x & y      // 按位与
@@ -364,14 +380,14 @@ x << 2     // 左移
 x >> 2     // 右移
 ```
 
-### 19. 元组
+### 18. 元组
 ```csharp
 // ❌ 不支持
 (int a, int b) = (1, 2)
 var tuple = (1, "hello")
 ```
 
-### 20. ref / out 参数
+### 19. ref / out 参数
 ```csharp
 // ❌ 不支持
 int.TryParse("123", out int result)

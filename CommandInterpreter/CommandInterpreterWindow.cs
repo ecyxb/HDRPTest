@@ -5,6 +5,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System;
+using Framework.Core;
+using System.Linq;
 
 namespace EventFramework
 {
@@ -12,11 +14,11 @@ namespace EventFramework
     /// <summary>
     /// 命令解释器编辑器窗口
     /// </summary>
-    public abstract class CommandInterpreterWindow : EditorWindow
+    public abstract class CommandInterpreterWindow : EditorWindow, ICanRegisterPresetCommand
     {
         private CommandInterpreterV2 interpreter;
         private string inputCommand = "";
-        private List<string> outputHistory = new List<string>();
+        private List<(string, float)> outputHistory = new List<(string, float)>();
         private List<string> commandHistory = new List<string>();
         private int historyIndex = -1;
         private Vector2 outputScrollPos;
@@ -25,6 +27,26 @@ namespace EventFramework
         private bool showVariables = true;
         private bool showHelp = true;
         private bool needFocusInput = false;
+        //private List<float> outputHistoryHeight = new List<float>();
+        // 使用 SelectableLabel 支持复制文本
+        private GUIStyle _outPutStyle = null;
+        private GUIStyle outputStyle
+        {
+            get
+            {
+                if(_outPutStyle == null)
+                {
+                    _outPutStyle = new GUIStyle(EditorStyles.label)
+                    {
+                        richText = true,
+                        wordWrap = true,
+                        padding = new RectOffset(5, 5, 2, 2),
+                        normal = { textColor = new Color(0.9f, 0.9f, 0.9f) }
+                    };
+                }
+                return _outPutStyle;
+            }
+        }
 
         // 单例实例（静态）
         public static CommandInterpreterWindow Instance { get; private set; }
@@ -97,18 +119,22 @@ namespace EventFramework
             interpreter.RegisterPresetVariable("#cam", () => Camera.main);
 
             // 内置委托：打印类型信息
-            interpreter.RegisterPresetVariable("#typeof", () => new System.Func<object, string>(obj =>
+            interpreter.RegisterPresetFunc("#typeof", new System.Func<object, string>(obj =>
             {
                 if (obj == null) return "null";
                 var type = obj.GetType();
                 return $"{type.FullName} (Assembly: {type.Assembly.GetName().Name})";
             }));
         }
+        
         public void RegisterPresetVariable(string name, System.Func<object> func)
         {
             interpreter.RegisterPresetVariable(name, func);
         }
-
+        public void RegisterPresetFunc(string name, object func)
+        {
+            interpreter.RegisterPresetFunc(name, func);
+        }
         private void RegisterDefaultVariables()
         {
             // 注册 Selection 相关
@@ -199,21 +225,17 @@ namespace EventFramework
             outputScrollPos = EditorGUILayout.BeginScrollView(outputScrollPos, scrollViewStyle,
                 GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true));
 
-            // 使用 SelectableLabel 支持复制文本
-            GUIStyle outputStyle = new GUIStyle(EditorStyles.label)
-            {
-                richText = true,
-                wordWrap = true,
-                padding = new RectOffset(5, 5, 2, 2),
-                normal = { textColor = new Color(0.9f, 0.9f, 0.9f) }
-            };
 
-            foreach (var line in outputHistory)
+            for (int i = 0; i <outputHistory.Count; i++ )
             {
                 // 计算文本高度
-                float height = outputStyle.CalcHeight(new GUIContent(line), EditorGUIUtility.currentViewWidth - 30);
-                Rect rect = EditorGUILayout.GetControlRect(false, height);
-                EditorGUI.SelectableLabel(rect, line, outputStyle);
+                //float height = outputStyle.CalcHeight(new GUIContent(line), EditorGUIUtility.currentViewWidth - 30) + 5;
+                if (outputHistory[i].Item2 < 0)
+                {
+                    outputHistory[i] = (outputHistory[i].Item1, CalcOutputHeight(outputHistory[i].Item1));
+                }
+                Rect rect = EditorGUILayout.GetControlRect(false, outputHistory[i].Item2);
+                EditorGUI.SelectableLabel(rect, outputHistory[i].Item1, outputStyle);
             }
 
             EditorGUILayout.EndScrollView();
@@ -533,9 +555,21 @@ namespace EventFramework
             }
         }
 
+
+        private float CalcOutputHeight(string line)
+        {
+            string[] splitlines = line.Split(new[] { '\n' }, StringSplitOptions.None);
+            float height = 0;
+            foreach (var l in splitlines)
+            {
+                GUIContent content = new GUIContent(l);
+                height += outputStyle.CalcHeight(content, EditorGUIUtility.currentViewWidth - 420);
+            }
+            return height;
+        }
         private void AddOutput(string line)
         {
-            outputHistory.Add(line);
+            outputHistory.Add((line, -1));
 
             // 限制历史记录数量
             if (outputHistory.Count > 500)
