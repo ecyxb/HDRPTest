@@ -1,99 +1,267 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+using EventFramework;
 
 namespace EventFramework
 {
-    public static class CommandInterpreterHelper
+    /// <summary>
+    /// 命令数据结构
+    /// </summary>
+    public struct CommandData
     {
+        public int TargetFrame;  // 目标执行帧号，0 表示立即执行
+        public string Command;   // 命令内容
+
+        public CommandData(int targetFrame, string command)
+        {
+            TargetFrame = targetFrame;
+            Command = command;
+        }
+    }
+
+    /// <summary>
+    /// 命令解释器代理，负责接收 UDP 命令并在逻辑线程执行
+    /// 使用方式：在逻辑线程初始化时创建实例，每帧调用 ProcessPendingCommands(currentFrame)
+    /// 支持多客户端同时运行（使用 UDP 广播 + 端口复用）
+    /// </summary>
+    public class CommandInterpreterProxy : IDisposable
+    {
+        public Action<string> ErrorHandler;
+        public Action<string> LogHandler;
+
+        private UdpClient udpListener;
+        private CommandInterpreterV2 interpreter;
+        private Thread receiveThread;
+        private volatile bool isRunning;
+
+        // 线程安全的命令队列
+        private readonly object commandQueueLock = new object();
+        private readonly System.Collections.Generic.Queue<CommandData> commandQueue = new System.Collections.Generic.Queue<CommandData>();
+
+        // 延迟执行的命令列表（等待特定帧执行）
+        private readonly System.Collections.Generic.List<CommandData> delayedCommands = new System.Collections.Generic.List<CommandData>();
+
         /// <summary>
-        /// ������ת��ΪĿ������
+        /// 创建命令解释器代理
         /// </summary>
-        /// <param name="arg"></param>
-        /// <param name="targetType"></param>
-        /// <returns></returns>
-        public static object ConvertArg(object arg, Type targetType)
+        public CommandInterpreterProxy()
         {
-            if (arg == null) return null;
-            if (targetType.IsAssignableFrom(arg.GetType())) return arg;
-            return Convert.ChangeType(arg, targetType);
-        }
-        public static object[] ConvertArgsWitdhDefaults(ICommandArg[] args, ParameterInfo[] parameters)
-        {
-            object[] convertedArgs = new object[parameters.Length];
-            int i = 0;
-            for (; i < args.Length; i++)
-            {
-                convertedArgs[i] = ConvertArg(args[i].GetRawValue(), parameters[i].ParameterType);
-            }
-            for (; i < parameters.Length; i++)
-            {
-                convertedArgs[i] = parameters[i].DefaultValue;
-            }
-            return convertedArgs;
-        }
-        public static Type FindGenericTypeDefinition(string baseName, int typeParamCount)
-        {
-            var commonGenerics = new Dictionary<string, Type>
-            {
-                { "List", typeof(List<>) },
-                { "Dictionary", typeof(Dictionary<,>) },
-                { "HashSet", typeof(HashSet<>) },
-            };
-
-            if (commonGenerics.TryGetValue(baseName, out Type common) &&
-                common.GetGenericArguments().Length == typeParamCount)
-                return common;
-
-            string fullName = baseName + "`" + typeParamCount;
-            return AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => { try { return a.GetTypes(); } catch { return Type.EmptyTypes; } })
-                .FirstOrDefault(t => t.IsGenericTypeDefinition &&
-                    (t.Name == fullName || t.GetGenericArguments().Length == typeParamCount && t.Name.StartsWith(baseName)));
+            interpreter = new CommandInterpreterV2();
         }
 
-        public static string[] SplitGenericArguments(string argsStr)
+        /// <summary>
+        /// 启动 UDP 监听（广播模式，支持多客户端）
+        /// </summary>
+        public void Start()
         {
-            var args = new List<string>();
-            int depth = 0, start = 0;
+            if (isRunning) return;
 
-            for (int i = 0; i < argsStr.Length; i++)
+            try
             {
-                char c = argsStr[i];
-                if (c == '<') depth++;
-                else if (c == '>') depth--;
-                else if (c == ',' && depth == 0)
+                udpListener = new UdpClient();
+
+                // 【关键1】启用地址复用，允许多个客户端绑定同一端口
+                udpListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+
+                // 【关键2】绑定到本地端口，监听所有网络接口
+                udpListener.Client.Bind(new IPEndPoint(IPAddress.Any, CommandInterpreterHelper.UDP_BROADCAST_PORT));
+
+                isRunning = true;
+
+                // 【关键3】设置为后台线程
+                receiveThread = new Thread(ReceiveLoop)
                 {
-                    args.Add(argsStr.Substring(start, i - start).Trim());
-                    start = i + 1;
+                    IsBackground = true,
+                    Name = "CommandInterpreterProxy_Receiver"
+                };
+                receiveThread.Start();
+
+                LogHandler?.Invoke($"[CommandInterpreterProxy] 已启动（广播模式），监听端口 {CommandInterpreterHelper.UDP_BROADCAST_PORT}");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler?.Invoke($"[CommandInterpreterProxy] 启动失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 停止 UDP 监听
+        /// </summary>
+        public void Stop()
+        {
+            if (!isRunning) return;
+
+            isRunning = false;
+
+            if (udpListener != null)
+            {
+                try
+                {
+                    udpListener.Close();
+                    udpListener.Dispose();
+                }
+                catch { }
+                udpListener = null;
+            }
+
+            if (receiveThread != null && receiveThread.IsAlive)
+            {
+                receiveThread.Join(1000); // 等待最多 1 秒
+            }
+
+            LogHandler?.Invoke("[CommandInterpreterProxy] 已停止");
+        }
+
+        /// <summary>
+        /// UDP 接收循环（在独立线程运行）
+        /// </summary>
+        private void ReceiveLoop()
+        {
+            IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+
+            while (isRunning)
+            {
+                try
+                {
+                    byte[] data = udpListener.Receive(ref remoteEP);
+
+                    // 解析数据：前4字节为帧号(int)，后续为命令字符串(UTF8)
+                    if (data.Length >= 4)
+                    {
+                        int targetFrame = BitConverter.ToInt32(data, 0);
+                        string command = Encoding.UTF8.GetString(data, 4, data.Length - 4);
+
+                        if (!string.IsNullOrWhiteSpace(command))
+                        {
+                            lock (commandQueueLock)
+                            {
+                                commandQueue.Enqueue(new CommandData(targetFrame, command));
+                            }
+                        }
+                    }
+                }
+                catch (SocketException)
+                {
+                    // 正常关闭时会抛出此异常，忽略
+                    if (!isRunning) break;
+                }
+                catch (Exception ex)
+                {
+                    if (isRunning)
+                    {
+                        LogHandler?.Invoke($"[CommandInterpreterProxy] 接收错误: {ex.Message}");
+                    }
                 }
             }
-            if (start < argsStr.Length) args.Add(argsStr.Substring(start).Trim());
-            return args.ToArray();
         }
 
-        public static Type ParseGenericType(string typeName, Func<string,Type> FindRawType)
+        /// <summary>
+        /// 处理待执行的命令（应在逻辑线程每帧调用）
+        /// </summary>
+        /// <param name="currentFrame">当前逻辑帧号</param>
+        public void ProcessPendingCommands(int currentFrame)
         {
-            int bracketStart = typeName.IndexOf('<');
-            if (bracketStart < 0) return null;
-
-            string baseName = typeName.Substring(0, bracketStart).Trim();
-            string argsStr = typeName.Substring(bracketStart + 1, typeName.Length - bracketStart - 2);
-
-            var typeArgs = CommandInterpreterHelper.SplitGenericArguments(argsStr);
-            Type genericDef = CommandInterpreterHelper.FindGenericTypeDefinition(baseName, typeArgs.Length);
-            if (genericDef == null) return null;
-
-            Type[] argTypes = new Type[typeArgs.Length];
-            for (int i = 0; i < typeArgs.Length; i++)
+            // 从队列中取出所有命令
+            while (true)
             {
-                argTypes[i] = FindRawType(typeArgs[i].Trim());
-                if (argTypes[i] == null) return null;
+                CommandData cmdData;
+                bool hasCommand = false;
+
+                lock (commandQueueLock)
+                {
+                    if (commandQueue.Count > 0)
+                    {
+                        cmdData = commandQueue.Dequeue();
+                        hasCommand = true;
+                    }
+                    else
+                    {
+                        cmdData = default;
+                    }
+                }
+
+                if (!hasCommand) break;
+
+                // 判断是否需要延迟执行
+                if (cmdData.TargetFrame <= 0 || cmdData.TargetFrame <= currentFrame)
+                {
+                    // 立即执行（TargetFrame <= 0 表示立即执行）
+                    ExecuteCommand(cmdData.Command);
+                }
+                else
+                {
+                    // 加入延迟队列
+                    delayedCommands.Add(cmdData);
+                }
             }
 
-            try { return genericDef.MakeGenericType(argTypes); }
-            catch { return null; }
+            // 检查延迟队列中是否有需要执行的命令
+            for (int i = delayedCommands.Count - 1; i >= 0; i--)
+            {
+                if (delayedCommands[i].TargetFrame <= currentFrame)
+                {
+                    ExecuteCommand(delayedCommands[i].Command);
+                    delayedCommands.RemoveAt(i);
+                }
+            }
         }
-    }   
+
+        /// <summary>
+        /// 执行单条命令
+        /// </summary>
+        private void ExecuteCommand(string command)
+        {
+            LogHandler?.Invoke($"[CommandInterpreterProxy] 执行: {command}");
+
+            try
+            {
+                string result = interpreter.Execute(command);
+
+                if (result.StartsWith("Error:"))
+                {
+                    ErrorHandler?.Invoke($"[CommandInterpreterProxy] {result}");
+                }
+                else
+                {
+                    LogHandler?.Invoke($"[CommandInterpreterProxy] {result}");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler?.Invoke($"[CommandInterpreterProxy] 执行异常: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 注册变量到解释器
+        /// </summary>
+        public void RegisterVariable(string name, object value)
+        {
+            interpreter.RegisterVariable(name, value);
+        }
+
+        /// <summary>
+        /// 注册预设变量到解释器
+        /// </summary>
+        public void RegisterPresetVariable(string name, Func<object> getter)
+        {
+            interpreter.RegisterPresetVariable(name, getter);
+        }
+
+        /// <summary>
+        /// 获取内部的 CommandInterpreterV2 实例
+        /// </summary>
+        public CommandInterpreterV2 Interpreter => interpreter;
+
+        /// <summary>
+        /// 释放资源
+        /// </summary>
+        public void Dispose()
+        {
+            Stop();
+        }
+    }
 }

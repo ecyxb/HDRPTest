@@ -51,133 +51,6 @@ namespace EventFramework
 
     #endregion
 
-    #region 参数类型实现
-
-
-    #endregion
-
-    #region 成员访问辅助类
-
-    /// <summary>成员访问辅助类，提供通用的成员访问实现</summary>
-    public static class MemberAccessHelper
-    {
-        private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-        public static ICommandArg GetMember(object target, Type type, string name)
-        {
-            if (target == null) return CommandInterpreter_ErrorArg.Create(ErrorCodes.NullReference);
-
-            var prop = type.GetProperty(name, InstanceFlags);
-            if (prop != null)
-            {
-                try { return CommandArgFactory.Wrap(prop.GetValue(target)); }
-                catch (Exception ex) { return CommandInterpreter_ErrorArg.Create(ErrorCodes.UnknownError, ex.Message); }
-            }
-
-            var field = type.GetField(name, InstanceFlags);
-            if (field != null)
-            {
-                try { return CommandArgFactory.Wrap(field.GetValue(target)); }
-                catch (Exception ex) { return CommandInterpreter_ErrorArg.Create(ErrorCodes.UnknownError, ex.Message); }
-            }
-
-            var methods = type.GetMethods(InstanceFlags).Where(m => m.Name == name).ToArray();
-            if (methods.Length > 0) return new CommandInterpreter_MethodGroupArg(target, methods);
-
-            return CommandInterpreter_ErrorArg.Create(ErrorCodes.MemberNotFound, $"{type.Name}.{name}");
-        }
-
-        public static bool SetMember(object target, Type type, string name, ICommandArg value)
-        {
-            if (target == null) return false;
-            object rawValue = value.GetRawValue();
-
-            var prop = type.GetProperty(name, InstanceFlags);
-            if (prop != null && prop.CanWrite)
-            {
-                try { prop.SetValue(target, ConvertValue(rawValue, prop.PropertyType)); return true; }
-                catch { return false; }
-            }
-
-            var field = type.GetField(name, InstanceFlags);
-            if (field != null && !field.IsInitOnly)
-            {
-                try { field.SetValue(target, ConvertValue(rawValue, field.FieldType)); return true; }
-                catch { return false; }
-            }
-            return false;
-        }
-
-        public static IEnumerable<string> GetMemberNames(Type type)
-        {
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
-            foreach (var prop in type.GetProperties(flags)) yield return prop.Name;
-            foreach (var field in type.GetFields(flags)) yield return field.Name;
-        }
-
-        private static object ConvertValue(object value, Type targetType)
-        {
-            if (value == null) return null;
-            if (targetType.IsAssignableFrom(value.GetType())) return value;
-            return Convert.ChangeType(value, targetType);
-        }
-    }
-
-    #endregion
-
-    #region 工厂类
-
-    public static class CommandArgFactory
-    {
-        public static ICommandArg Wrap(object value)
-        {
-            if (value == null) return CommandInterpreter_NullArg.Instance;
-            if (value is ICommandArg arg) return arg;
-
-            if (value is bool b) return CommandInterpreter_BoolArg.From(b);
-            if (value is string s) return new CommandInterpreter_StringArg(s);
-            if (value is int i) return CommandInterpreter_NumericArg.FromInt(i);
-            if (value is long l) return CommandInterpreter_NumericArg.FromInt(l);
-            if (value is float f) return CommandInterpreter_NumericArg.FromFloat(f);
-            if (value is double d) return CommandInterpreter_NumericArg.FromFloat(d);
-            if (value is short sh) return CommandInterpreter_NumericArg.FromInt(sh);
-            if (value is byte by) return CommandInterpreter_NumericArg.FromInt(by);
-            if (value is Delegate del) return new CommandInterpreter_DelegateArg(del);
-            if (value is Type t) return new CommandInterpreter_TypeArg(t);
-            if (value is IDictionary dict) return new CommandInterpreter_DictArg(dict);
-            if (value is IList list) return new CommandInterpreter_ListArg(list);
-
-            return new CommandInterpreter_ObjectArg(value);
-        }
-
-        public static ICommandArg ParseLiteral(string expr)
-        {
-            if (expr == "null") return CommandInterpreter_NullArg.Instance;
-            if (expr == "true") return CommandInterpreter_BoolArg.True;
-            if (expr == "false") return CommandInterpreter_BoolArg.False;
-
-            if (expr.StartsWith("\"") && expr.EndsWith("\"") && expr.Length >= 2)
-                return new CommandInterpreter_StringArg(expr.Substring(1, expr.Length - 2));
-
-            // 支持负数浮点数字面量
-            if (expr.Contains(".") || expr.EndsWith("f") || expr.EndsWith("F"))
-            {
-                string numStr = expr.TrimEnd('f', 'F');
-                if (double.TryParse(numStr, out double dVal)) return CommandInterpreter_NumericArg.FromFloat(dVal);
-            }
-
-            // 支持负数整数字面量
-            if (int.TryParse(expr, out int iVal)) return CommandInterpreter_NumericArg.FromInt(iVal);
-            if (long.TryParse(expr, out long lVal2)) return CommandInterpreter_NumericArg.FromInt(lVal2);
-            if ((expr.EndsWith("L") || expr.EndsWith("l")) && long.TryParse(expr.TrimEnd('L', 'l'), out long lVal))
-                return CommandInterpreter_NumericArg.FromInt(lVal);
-
-            return null;
-        }
-    }
-
-    #endregion
-
     #region 解释器 V2
 
     /// <summary>
@@ -433,6 +306,7 @@ namespace EventFramework
             return ctorType.InvokeConstructor(Ruler, ParseArguments(ctorArgs));
         }
 
+        #endregion
         private ICommandArg ResolveReference(string expr)
         {
             ICommandArg literal = CommandArgFactory.ParseLiteral(expr);
@@ -494,9 +368,50 @@ namespace EventFramework
 
                 if (current is IMemberAccessible accessible)
                 {
+                    // 检查是否是泛型方法调用 Method<T1, T2>(args)
+                    int genericStart = part.IndexOf('<');
                     int parenIdx = part.IndexOf('(');
-                    if (parenIdx > 0 && part.EndsWith(")"))
+
+                    if (genericStart > 0 && parenIdx > genericStart && part.EndsWith(")"))
                     {
+                        // 泛型方法调用
+                        string methodName = part.Substring(0, genericStart);
+                        int genericEnd = FindMatchingGenericClose(part, genericStart);
+                        if (genericEnd < 0 || genericEnd >= parenIdx)
+                        {
+                            return CommandInterpreter_ErrorArg.Create(ErrorCodes.ParseError, $"无效的泛型方法语法: {part}");
+                        }
+
+                        string genericArgsStr = part.Substring(genericStart + 1, genericEnd - genericStart - 1);
+                        string argsStr = part.Substring(parenIdx + 1, part.Length - parenIdx - 2);
+
+                        // 解析泛型类型参数
+                        Type[] genericTypes = ParseGenericTypeArguments(genericArgsStr);
+                        if (genericTypes == null || genericTypes.Length == 0)
+                        {
+                            return CommandInterpreter_ErrorArg.Create(ErrorCodes.TypeNotFound, $"无法解析泛型类型参数: {genericArgsStr}");
+                        }
+
+                        // 获取方法组
+                        ICommandArg method = accessible.GetMember(methodName);
+                        if (method.IsError()) return method;
+
+                        if (method is CommandInterpreter_MethodGroupArg methodGroup)
+                        {
+                            // 创建带有泛型类型参数的方法组
+                            var genericMethodGroup = methodGroup.WithGenericTypes(genericTypes);
+                            ICommandArg[] args = ParseArguments(argsStr);
+                            genericMethodGroup.Invoke(Ruler, out current, args);
+                            if (current.IsError()) return current;
+                        }
+                        else
+                        {
+                            return CommandInterpreter_ErrorArg.Create(ErrorCodes.NotCallable, $"{methodName} 不是方法");
+                        }
+                    }
+                    else if (parenIdx > 0 && part.EndsWith(")"))
+                    {
+                        // 普通方法调用
                         string methodName = part.Substring(0, parenIdx);
                         string argsStr = part.Substring(parenIdx + 1, part.Length - parenIdx - 2);
 
@@ -509,7 +424,7 @@ namespace EventFramework
                             functor.Invoke(Ruler, out current, args);
                             if (current.IsError()) return current;
                         }
-                        else 
+                        else
                             return CommandInterpreter_ErrorArg.Create(ErrorCodes.NotCallable, methodName);
                     }
                     else
@@ -524,7 +439,142 @@ namespace EventFramework
             return current;
         }
 
-        #endregion
+        /// <summary>
+        /// 查找匹配的泛型参数结束位置 '>'
+        /// </summary>
+        private int FindMatchingGenericClose(string expr, int start)
+        {
+            if (start < 0 || expr[start] != '<') return -1;
+
+            int depth = 1;
+            for (int i = start + 1; i < expr.Length; i++)
+            {
+                char c = expr[i];
+                if (c == '<') depth++;
+                else if (c == '>')
+                {
+                    depth--;
+                    if (depth == 0) return i;
+                }
+            }
+            return -1;
+        }
+
+
+
+        /// <summary>
+        /// 从位置 end 的 > 查找匹配的 <
+        /// </summary>
+        private int FindMatchingOpenAngle(string expr, int end)
+        {
+            if (end < 0 || expr[end] != '>') return -1;
+
+            int depth = 1;
+            for (int i = end - 1; i >= 0; i--)
+            {
+                char c = expr[i];
+                if (c == '>') depth++;
+                else if (c == '<')
+                {
+                    depth--;
+                    if (depth == 0) return i;
+                }
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// 检查位置 i 处的 > 是否可能是泛型的结束符
+        /// </summary>
+        private bool IsLikelyGenericClose(string expr, int i)
+        {
+            // 如果 > 后面紧跟 ( ，很可能是泛型方法调用如 Method<T>(
+            if (i + 1 < expr.Length && expr[i + 1] == '(')
+                return true;
+
+            // 如果 > 后面是 > ，可能是嵌套泛型如 List<List<int>>
+            if (i + 1 < expr.Length && expr[i + 1] == '>')
+                return true;
+
+            // 如果 > 后面是 , ，可能是多参数泛型如 Dictionary<K, V>
+            if (i + 1 < expr.Length && expr[i + 1] == ',')
+                return true;
+
+            // 如果 > 是表达式末尾，检查整个表达式是否像泛型
+            if (i == expr.Length - 1)
+            {
+                // 检查是否有匹配的 <，且 < 前面是标识符
+                int openAngle = FindMatchingOpenAngle(expr, i);
+                if (openAngle > 0 && IsIdentifierChar(expr[openAngle - 1]))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 检查位置处的 < 或 > 是否是泛型语法的一部分
+        /// </summary>
+        private bool IsPartOfGenericSyntax(string expr, int pos)
+        {
+            char c = expr[pos];
+
+            if (c == '<')
+            {
+                // 检查 < 前面是否是标识符（方法名或类型名）
+                if (pos > 0 && IsIdentifierChar(expr[pos - 1]))
+                {
+                    // 检查是否有匹配的 >
+                    int closeAngle = FindMatchingGenericClose(expr, pos);
+                    if (closeAngle > pos)
+                    {
+                        // 检查 > 后面是否是 ( ，表示泛型方法调用
+                        if (closeAngle + 1 < expr.Length && expr[closeAngle + 1] == '(')
+                            return true;
+                        // 或者 > 是表达式末尾（泛型类型引用）
+                        if (closeAngle == expr.Length - 1)
+                            return true;
+                    }
+                }
+            }
+            else if (c == '>')
+            {
+                // 检查是否有匹配的 <
+                int openAngle = FindMatchingOpenAngle(expr, pos);
+                if (openAngle >= 0 && openAngle < pos)
+                {
+                    // 检查 < 前面是否是标识符
+                    if (openAngle > 0 && IsIdentifierChar(expr[openAngle - 1]))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsIdentifierChar(char c)
+        {
+            return char.IsLetterOrDigit(c) || c == '_';
+        }
+
+
+        /// <summary>
+        /// 解析泛型类型参数字符串
+        /// </summary>
+        private Type[] ParseGenericTypeArguments(string genericArgsStr)
+        {
+            var typeNames = CommandInterpreterHelper.SplitGenericArguments(genericArgsStr);
+            var types = new List<Type>();
+
+            foreach (var typeName in typeNames)
+            {
+                Type type = Ruler.FindRawType(typeName.Trim());
+                if (type == null) return null;
+                types.Add(type);
+            }
+
+            return types.ToArray();
+        }
 
         #region 运算符处理
 
@@ -667,8 +717,8 @@ namespace EventFramework
             object rightRaw = right.GetRawValue();
             ICommandArg result = null;
 
-            if (leftRaw == null) return null;
-            if (rightRaw == null) return null;
+            if (leftRaw == null || rightRaw == null) return null;
+
             var leftTypeArg = new CommandInterpreter_TypeArg(leftRaw.GetType());
             var rightTypeArg = new CommandInterpreter_TypeArg(rightRaw.GetType());
 
@@ -677,69 +727,24 @@ namespace EventFramework
             {
                 ICommandArg[] args = new ICommandArg[] { left, right };
                 leftFunctor.Invoke(Ruler, out result, args);
-                if (!result.IsError())
-                {
-                    return result;
-                }
+                if (!result.IsError()) return result;
             }
+
             ICommandArg rightMethod = rightTypeArg.GetMember(methodName);
             if (!rightMethod.IsError() && rightMethod.IsFunctor && rightMethod is IFunctor rightFunctor)
             {
                 ICommandArg[] args = new ICommandArg[] { left, right };
                 rightFunctor.Invoke(Ruler, out result, args);
-                if (!result.IsError())
-                {
-                    return result;
-                }
+                if (!result.IsError()) return result;
             }
             return null;
         }
 
-        /// <summary>
-        /// 尝试将数值转换为目标类型
-        /// </summary>
-        private object TryConvertNumeric(object value, Type targetType)
-        {
-            if (value == null) return null;
-
-            try
-            {
-                Type valueType = value.GetType();
-
-                // 如果类型已经兼容，直接返回
-                if (targetType.IsAssignableFrom(valueType))
-                    return value;
-
-                // 数值类型之间的转换
-                if (IsNumericType(valueType) && IsNumericType(targetType))
-                {
-                    return Convert.ChangeType(value, targetType);
-                }
-            }
-            catch
-            {
-                // 转换失败
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// 判断是否是数值类型
-        /// </summary>
-        private bool IsNumericType(Type type)
-        {
-            return type == typeof(sbyte) || type == typeof(byte) ||
-            type == typeof(short) || type == typeof(ushort) ||
-                 type == typeof(int) || type == typeof(uint) ||
-              type == typeof(long) || type == typeof(ulong) ||
-                type == typeof(float) || type == typeof(double) ||
-               type == typeof(decimal);
-        }
 
         private int FindOperatorPosition(string expr, string[] operators)
         {
             int depth = 0;
+            int angleDepth = 0; // 跟踪泛型括号深度
             bool inString = false;
 
             for (int i = expr.Length - 1; i >= 0; i--)
@@ -750,8 +755,20 @@ namespace EventFramework
 
                 if (c == ')' || c == ']') depth++;
                 else if (c == '(' || c == '[') depth--;
+                else if (c == '>')
+                {
+                    // 检查是否是泛型的结束符（后面紧跟 '(' 或者在已有的泛型上下文中）
+                    if (IsLikelyGenericClose(expr, i))
+                        angleDepth++;
+                }
+                else if (c == '<')
+                {
+                    // 如果有未匹配的 >，这是泛型开始符
+                    if (angleDepth > 0)
+                        angleDepth--;
+                }
 
-                if (depth == 0)
+                if (depth == 0 && angleDepth == 0)
                 {
                     foreach (var op in operators)
                     {
@@ -760,6 +777,10 @@ namespace EventFramework
                             int pos = i - op.Length + 1;
                             if (pos > 0)
                             {
+                                // 对于 < 和 > 运算符，额外检查是否是泛型语法
+                                if ((op == "<" || op == ">") && IsPartOfGenericSyntax(expr, pos))
+                                    continue;
+
                                 if (op == "-")
                                 {
                                     int prevIdx = pos - 1;

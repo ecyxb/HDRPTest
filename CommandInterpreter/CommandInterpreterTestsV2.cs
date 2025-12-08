@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 #endif
-using EventFramework;
 
 namespace EventFramework
 {
@@ -26,7 +25,6 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static int failCount = 0;
         private static List<string> failedTests = new List<string>();
 
-        [MenuItem("Tools/Run CommandInterpreterV2 Tests")]
         public static void RunAllTests()
         {
             passCount = 0;
@@ -106,6 +104,9 @@ public static Action<string> LogHandler = Console.WriteLine;
 
             // 24. ICommandArg 接口能力测试
             TestInterfaceCapabilities();
+            
+            //25. 泛型方法测试
+            TestGenericMethods();
 
             // 汇总
             LogHandler("========== 测试结果 ==========");
@@ -1128,6 +1129,43 @@ public static Action<string> LogHandler = Console.WriteLine;
             AssertFalse(errArg.CanNumeric(), "ErrorArg.CanNumeric() = false");
         }
 
+        private static void TestGenericMethods()
+        {
+            LogHandler("--- 25. Generic Method 测试 ---");
+            var interp = new CommandInterpreterV2();
+
+            // 基本泛型方法调用 - 静态方法
+            var genericArg = interp.Evaluate("TestClassV2.TestGenericMethod<int>(42)");
+            AssertNotError(genericArg, "调用泛型方法不应报错");
+            AssertEqual("Int32", genericArg.GetRawValue(), "泛型方法返回类型名 (int -> Int64)");
+
+            // 使用 string 类型参数
+            var genericString = interp.Evaluate("TestClassV2.TestGenericMethod<string>(\"hello\")");
+            AssertNotError(genericString, "泛型方法<string>不应报错");
+            AssertEqual("String", genericString.GetRawValue(), "泛型方法返回类型名 (string)");
+
+            // 使用 float 类型参数
+            var genericFloat = interp.Evaluate("TestClassV2.TestGenericMethod<float>(3.14)");
+            AssertNotError(genericFloat, "泛型方法<float>不应报错");
+
+            // 多类型参数泛型方法
+            var genericMulti = interp.Evaluate("TestClassV2.TestGenericMethod2<int, string>(42, \"test\")");
+            AssertNotError(genericMulti, "多类型参数泛型方法不应报错");
+            AssertEqual("Int32, String", genericMulti.GetRawValue(), "多类型参数泛型方法返回值");
+
+            // 实例泛型方法
+            var testObj = new TestClassV2();
+            interp.RegisterVariable("obj", testObj);
+            var instanceGeneric = interp.Evaluate("obj.InstanceGenericMethod<int>(100)");
+            AssertNotError(instanceGeneric, "实例泛型方法不应报错");
+            AssertEqual("Int32", instanceGeneric.GetRawValue(), "实例泛型方法返回值");
+
+            // 泛型方法与普通比较运算符混合
+            var comparison = interp.Evaluate("TestClassV2.TestGenericMethod<int>(5) == \"Int32\"");
+            AssertNotError(comparison, "泛型方法结果比较不应报错");
+            AssertEqual(true, comparison.GetRawValue(), "泛型方法结果比较");
+        }
+
         #endregion
     }
 
@@ -1153,6 +1191,20 @@ public static Action<string> LogHandler = Console.WriteLine;
         public class NestedClass
         {
             public int Value { get; set; }
+        }
+        public static string TestGenericMethod<T>(T input)
+        {
+            return input.GetType().Name;
+        }
+
+        public static string TestGenericMethod2<T1, T2>(T1 input1, T2 input2)
+        {
+            return $"{input1.GetType().Name}, {input2.GetType().Name}";
+        }
+
+        public string InstanceGenericMethod<T>(T input)
+        {
+            return input.GetType().Name;
         }
     }
 

@@ -5,9 +5,9 @@ using System.Reflection;
 
 namespace EventFramework
 {    
-    #region �ӿڶ���
+    #region 接口定义
 
-    /// <summary>������������ӿ�</summary>
+    /// <summary>命令参数基础接口</summary>
     public interface ICommandArg
     {
         bool IsFunctor { get; }
@@ -15,13 +15,13 @@ namespace EventFramework
         string Format();
     }
 
-    /// <summary>�ɵ�������</summary>
+    /// <summary>可调用类型</summary>
     public interface IFunctor
     {
         int Invoke(CommandInterpreterRulerV2 ruler, out ICommandArg result, params ICommandArg[] args);
     }
 
-    /// <summary>����ֵ��������</summary>
+    /// <summary>可数值运算类型</summary>
     public interface INumeric
     {
         double ToDouble();
@@ -29,7 +29,7 @@ namespace EventFramework
         bool IsInteger { get; }
     }
 
-    /// <summary>���ַ�����������</summary>
+    /// <summary>可字符串操作类型</summary>
     public interface IStringArg
     {
         string GetString();
@@ -37,7 +37,7 @@ namespace EventFramework
 
 
 
-    /// <summary>�ɳ�Ա��������</summary>
+    /// <summary>可成员访问类型</summary>
     public interface IMemberAccessible
     {
         ICommandArg GetMember(string name);
@@ -49,7 +49,7 @@ namespace EventFramework
         Type[] GenericTypes { get; }
     }
 
-    /// <summary>����������</summary>
+    /// <summary>可索引类型</summary>
     public interface IIndexable : IGenericArg
     {
         int Count { get; }
@@ -63,7 +63,7 @@ namespace EventFramework
     public class CommandInterpreterRulerV2
     {
         /// <summary>
-        /// �������Ͷ���
+        /// 缓存类型对象
         /// </summary>
         protected Dictionary<string, CommandInterpreter_TypeArg> cacheTypes = new Dictionary<string, CommandInterpreter_TypeArg>();
 
@@ -131,7 +131,7 @@ namespace EventFramework
 
 
         /// <summary>
-        /// ���������������ӳ��
+        /// 运算符到方法名的映射
         /// </summary>
         public virtual Dictionary<string, string> GetOperatorMethodNames => new Dictionary<string, string>
         {
@@ -162,7 +162,7 @@ namespace EventFramework
 
 
         /// <summary>
-        /// �������ͺ��������������ƥ�������-1��ʾ��ƥ�䡣���ص������Ǽ����ƣ�Խ�ͷ�Խ��
+        /// 根据类型和命令参数，计算匹配分数，-1表示不匹配。返回的正数是减分制，越低分越好
         /// </summary>
         /// <param name="paramType"></param>
         /// <param name="commandArg"></param>
@@ -173,48 +173,48 @@ namespace EventFramework
             bool isNumericParam = paramTypeIdx >= 0;
             bool isFloatParam = paramTypeIdx >= 7; // float or double
             bool isNumericArg = commandArg is INumeric;
-            // ��ֵ����֮������Եı���ƥ��
+            // 数值类型之间最粗略的必须匹配
             if (isNumericParam != isNumericArg)
             {
                 return -1;
             }
             if (isNumericArg)
             {
-                //���������ֵ����
+                //如果都是数值类型
                 INumeric numeric = (INumeric)commandArg;
                 if (numeric.IsInteger)
                 {
-                    //���arg������
+                    //如果arg是整数
                     if (isFloatParam)
                     {
-                        //����ת���㣬����ͨ���������ȼ���
+                        //整形转浮点，可以通过，但优先级低
                         return 1000;
                     }
                     else
                     {
-                        //����ת���Σ���鷶Χ
+                        //整形转整形，检查范围
                         var limit = maxIntLimits[paramTypeIdx];
                         long argValue = numeric.ToLong();
                         if (argValue < limit[0] || argValue > limit[1])
                         {
-                            //���������ת��
+                            //溢出，不能转换
                             return -1;
                         }
-                        //ֻҪû���������Ϊ�������͵����ȼ���ͬ�������ֻ�ܸ��������岻��
+                        //只要没有溢出，认为所有整型的优先级相同，再区分会很复杂且意义不大
                         return 0;
                     }
                 }
                 else
                 {
-                    //���arg�Ǹ���
+                    //如果arg是浮点
                     if (isFloatParam)
                     {
-                        //����ת���㣬һ��ת��
+                        //浮点转浮点，一定转换
                         return 0;
                     }
                     else
                     {
-                        //����ת���Σ��ǲ�������
+                        //浮点转整形，是不允许的
                         return -1;
                     }
                 }
@@ -222,17 +222,17 @@ namespace EventFramework
             else
             {
                 object rawValue = commandArg.GetRawValue();
-                // ����ֵ����
+                // 非数值类型
                 if (rawValue == null)
                 {
                     if (paramType.IsValueType)
                     {
-                        //ֵ���Ͳ�����ƥ��
+                        //值类型参数不匹配
                         return -1;
                     }
                     else
                     {
-                        //�������Ͳ�������Ϊƥ�䣬���üӷ�
+                        //引用类型参数，认为匹配，不用加分
                         return 0;
                     }
 
@@ -242,11 +242,11 @@ namespace EventFramework
                     Type argType = rawValue.GetType();
                     if (paramType == argType)
                     {
-                        return 0; // ��ȫƥ��
+                        return 0; // 完全匹配
                     }
                     else if (paramType.IsAssignableFrom(argType))
                     {
-                        return 500; // �ɸ�ֵƥ��
+                        return 500; // 可赋值匹配
                     }
                     else
                     {
@@ -258,7 +258,7 @@ namespace EventFramework
         }
 
         /// <summary>
-        /// �������ƥ��ķ����������ǿɱ����������Ĭ�ϲ���
+        /// 查找最佳匹配的方法，不考虑可变参数，考虑默认参数
         /// </summary>
         /// <param name="Methods"></param>
         /// <param name="args"></param>
@@ -272,20 +272,20 @@ namespace EventFramework
             {
                 var method = Methods[mIdx];
                 var parameters = method.GetParameters();
-                // ��������������ڴ��������һ���ǲ��е�
+                // 如果参数数量多于传入参数，一定是不行的
                 if (args.Length > parameters.Length) continue;
                 int score = 0;
                 bool match = true;
 
                 for (int i = args.Length; i < parameters.Length; i++)
                 {
-                    // ���������Ĳ���û��Ĭ��ֵ��һ���ǲ��е�
+                    // 如果多出来的参数没有默认值，一定是不行的
                     if (!parameters[i].HasDefaultValue)
                     {
                         match = false;
                         break;
                     }
-                    //��Ĭ�ϲ�������Ϊ�Ǳ���ȫƥ���һ��
+                    //用默认参数，认为是比完全匹配差一点
                     score -= 1;
                 }
                 if (!match) continue;
@@ -297,8 +297,8 @@ namespace EventFramework
                         match = false;
                         break;
                     }
-                    //�����ƣ�����Խ��Խ��
-                    //����Ϊ���ò����ٵ�ʱ���ܾ����ܵ��ò����ٵķ���
+                    //减分制，分数越高越好
+                    //这是为了让参数少的时候能尽可能调用参数少的方法
                     score -= s; 
                 }
                 if (!match) continue;

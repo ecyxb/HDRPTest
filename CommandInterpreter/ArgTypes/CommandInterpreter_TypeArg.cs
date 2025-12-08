@@ -5,7 +5,7 @@ using System.Reflection;
 
 namespace EventFramework
 {
-    /// <summary>ÀàĞÍ£¨¾²Ì¬³ÉÔ±·ÃÎÊ£©</summary>
+    /// <summary>ç±»å‹ï¼ˆé™æ€æˆå‘˜è®¿é—®ï¼‰</summary>
     public class CommandInterpreter_TypeArg : ICommandArg, IMemberAccessible, IFunctor
     {
         public Type Value { get; }
@@ -16,26 +16,27 @@ namespace EventFramework
 
         public ICommandArg GetMember(string name)
         {
-            const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+            return MemberAccessHelper.GetMember(null, this.Value, name, isStatic: true);
+            //const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
-            var prop = Value.GetProperty(name, flags);
-            if (prop != null)
-            {
-                try { return CommandArgFactory.Wrap(prop.GetValue(null)); }
-                catch (Exception ex) { return CommandInterpreter_ErrorArg.Create(ErrorCodes.UnknownError, ex.Message); }
-            }
+            //var prop = Value.GetProperty(name, flags);
+            //if (prop != null)
+            //{
+            //    try { return CommandArgFactory.Wrap(prop.GetValue(null)); }
+            //    catch (Exception ex) { return CommandInterpreter_ErrorArg.Create(ErrorCodes.UnknownError, ex.Message); }
+            //}
 
-            var field = Value.GetField(name, flags);
-            if (field != null)
-            {
-                try { return CommandArgFactory.Wrap(field.GetValue(null)); }
-                catch (Exception ex) { return CommandInterpreter_ErrorArg.Create(ErrorCodes.UnknownError, ex.Message); }
-            }
+            //var field = Value.GetField(name, flags);
+            //if (field != null)
+            //{
+            //    try { return CommandArgFactory.Wrap(field.GetValue(null)); }
+            //    catch (Exception ex) { return CommandInterpreter_ErrorArg.Create(ErrorCodes.UnknownError, ex.Message); }
+            //}
 
-            var methods = Value.GetMethods(flags).Where(m => m.Name == name).ToArray();
-            if (methods.Length > 0) return new CommandInterpreter_MethodGroupArg(null, methods);
+            //var methods = Value.GetMethods(flags).Where(m => m.Name == name).ToArray();
+            //if (methods.Length > 0) return new CommandInterpreter_MethodGroupArg(null, methods);
 
-            return CommandInterpreter_ErrorArg.Create(ErrorCodes.MemberNotFound, $"{Value.Name}.{name}");
+            //return CommandInterpreter_ErrorArg.Create(ErrorCodes.MemberNotFound, $"{Value.Name}.{name}");
         }
 
         public bool SetMember(string name, ICommandArg value) => false;
@@ -65,7 +66,7 @@ namespace EventFramework
                 }
                 if (result == null)
                 {
-                    result = CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentCount, $"Î´ÕÒµ½Æ¥ÅäµÄ¹¹Ôìº¯Êı: {Value.Name}");
+                    result = CommandInterpreter_ErrorArg.Create(ErrorCodes.InvalidArgumentCount, $"æœªæ‰¾åˆ°åŒ¹é…çš„æ„é€ å‡½æ•°: {Value.Name}");
                     return ErrorCodes.InvalidArgumentCount;
                 }
                 return ErrorCodes.Success;

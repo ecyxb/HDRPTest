@@ -1,268 +1,589 @@
-using System;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-using EventFramework;
+/*
+ * ==============================================================================
+ * Filename: BattleField
+ * Created:  2025 / 9 / 25
+ * Author: HuaHua
+ * Purpose: 战场
+ * ==============================================================================
+ **/
 
-namespace EventFramework
+using Binary;
+using Framework.Core;
+using Framework.Core.Fixed;
+using mathematics;
+using MemoryCopy;
+using System.Collections.Generic;
+using System.Collections.Generic.Open;
+using System.Runtime.CompilerServices;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace Game.Battle
 {
-    /// <summary>
-    /// 命令数据结构
-    /// </summary>
-    public struct CommandData
+    [Binary, MemoryCopy(ENotFullCopyType.NeedCopy)]
+    public partial class BattleField : IDataPool, IPtrEntity<BattleField>
     {
-        public int TargetFrame;  // 目标执行帧号，0 表示立即执行
-        public string Command;   // 命令内容
-
-        public CommandData(int targetFrame, string command)
+        public PtrEntity<BattleField> Ptr
         {
-            TargetFrame = targetFrame;
-            Command = command;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set;
         }
-    }
+        public EntityPool EPool
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set;
+        }
+        public uint PtrGUID
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set;
+        }
+        public MemoryPool MPool
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set;
+        }
 
-    /// <summary>
-    /// 命令解释器代理，负责接收 UDP 命令并在逻辑线程执行
-    /// 使用方式：在逻辑线程初始化时创建实例，每帧调用 ProcessPendingCommands(currentFrame)
-    /// 支持多客户端同时运行（使用 UDP 广播 + 端口复用）
-    /// </summary>
-    public class CommandInterpreterProxy : IDisposable
-    {
-        public Action<string> ErrorHandler;
-        public Action<string> LogHandler;
-        private const int UDP_PORT = 11451;
-        
-        private UdpClient udpListener;
-        private CommandInterpreterV2 interpreter;
-        private Thread receiveThread;
-        private volatile bool isRunning;
-        
-        // 线程安全的命令队列
-        private readonly object commandQueueLock = new object();
-        private readonly System.Collections.Generic.Queue<CommandData> commandQueue = new System.Collections.Generic.Queue<CommandData>();
-        
-        // 延迟执行的命令列表（等待特定帧执行）
-        private readonly System.Collections.Generic.List<CommandData> delayedCommands = new System.Collections.Generic.List<CommandData>();
+        #region 数据
+
+        [BinaryInore, MemoryCopyMemberReference]
+        public BFSetting Setting; // 战斗配置
+
+        private PtrEntity<QuadTreeSystem> _ptrQuadTree;               // 场景单位四叉树管理
+        private PtrEntity<SceneSystem> _ptrSceneSystem;
+        private PtrEntity<PointSystem> _ptrPointSystem;                     // 场景点位管理器
+        private PtrEntity<GridSystem> PtrGridSystem;
+        private PtrEntity<VisibleCellDataSystem> _ptrVisibleSystem;     //迷雾的视野数据
+        private PtrEntity<BulletManager> PtrBulletMgr;                // 战场中所有的子弹管理器
+        private PtrEntity<EffectSystem> PtrEffectSystem;              // 特效管理器
+        private PtrEntity<ActorSkillDestroyManager> PtrActorSkillDestroyMgr;           // 处理Actor技能延时销毁
+        private PtrEntity<CommonReactableObjectManager> PtrCommonReactObjMgr; // 交互管理器
 
         /// <summary>
-        /// 创建命令解释器代理
+        /// key is  ECampType
         /// </summary>
-        public CommandInterpreterProxy()
+        private OpenDictionary_int<PtrEntity<Team>> _ptrTeams;              //队伍    
+        private OpenList<PtrEntity<Actor>> _ptrActorsList;                  // 所有有效的单位对象（遍历用）
+        private OpenDictionary_int<PtrEntity<Actor>> _ptrActors;            // 所有有效的单位对象（索引用）
+        private OpenDictionary<uint, PtrEntity<Actor>> _ptrGuidActors;            // 所有有效的单位对象（使用GUID索引用）
+        private OpenDictionary_int<PtrEntity<Actor>> _ptrServerActors;      // 服务器索引Actor字典
+
+
+        [BinaryInore, MemoryCopyMemberIgnore]
+        private PtrEntityCacheDictionary<int, Actor> _actorsCache = new(false, 8);
+        [BinaryInore, MemoryCopyMemberIgnore]
+        private PtrEntityCacheDictionary<uint, Actor> _actorsGuidCache = new(false, 8);
+        [BinaryInore, MemoryCopyMemberIgnore]
+        private PtrEntityCacheList<Actor> _actorsCacheList = new(false, 8);
+        /// <summary>
+        /// 战场数据
+        /// </summary>
+        private BattleFieldData _data;
+        public ref BattleFieldData Data => ref _data;
+
+        public ref int LogicFrameIndex => ref this._data.LogicFrameIndex;            // 逻辑帧序号(当前的)
+        public ref int LogicFrameCount => ref this._data.LogicFrameCount;            // 逻辑帧数
+        public ref ffloat LogicFrameDeltaTime => ref this._data.LogicFrameDeltaTime; // 逻辑帧间隔(秒)
+        public ref ffloat LogicFrameDeltaTimeMS => ref this._data.LogicFrameDeltaTimeMs; // 逻辑帧间隔(毫秒)
+        public ref ffloat LogicFrameTime => ref this._data.LogicFrameTime;           // 逻辑帧时间(当前的)
+        public ref FRandom RandomGenerator => ref this.Data.RandomGenerator;
+
+
+        public OpenDictionary_int<Actor> AllActors => this._actorsCache.GetOpenDictionaryInt(this._ptrActors, this.EPool);
+        public Dictionary<uint, Actor> AllActorsByGuid => this._actorsGuidCache.Get(this._ptrGuidActors, this.EPool);
+        public OpenList<Actor> AllActorsList => this._actorsCacheList.GetOpenList(this._ptrActorsList, this.EPool);
+
+
+        [BinaryInore, MemoryCopyMemberCopySetDefault]
+        private PointSystem _pointSystem;
+        public PointSystem PointSystem // 场景点位管理器
         {
-            interpreter = new CommandInterpreterV2();
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get => this._pointSystem ??= this._ptrPointSystem.Get(this.EPool);
+        }
+
+        [BinaryInore, MemoryCopyMemberCopySetDefault]
+        private VisibleCellDataSystem _visibleSystem;
+        public VisibleCellDataSystem VisibleSystem
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get => this._visibleSystem ??= this._ptrVisibleSystem.Get(this.EPool);
+        }
+
+
+        [BinaryInore, MemoryCopyMemberIgnore]
+        private ScriptNodeCreator _scriptCreator; // 脚本节点创建管理器
+        public ScriptNodeCreator ScriptCreator
+        {
+            get
+            {
+                if (this._scriptCreator != null)
+                    return this._scriptCreator;
+                this._scriptCreator = new ScriptNodeCreator();
+                this._scriptCreator.Initialize();
+                return this._scriptCreator;
+            }
+        }
+
+        [BinaryInore, MemoryCopyMemberIgnore]
+        private EventSystem _eventSystem;
+        public EventSystem EventSystem => _eventSystem;
+
+
+        [BinaryInore, MemoryCopyMemberCopySetDefault]
+        private QuadTreeSystem _quadTreeSystem;
+        public QuadTreeSystem QuadTreeSystem // 场景单位四叉树管理
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => this._quadTreeSystem ??= this._ptrQuadTree.Get(this.EPool);
+        }
+
+        [BinaryInore, MemoryCopyMemberCopySetDefault]
+        private SceneSystem _sceneSystem;
+        public SceneSystem SceneSystem
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => this._sceneSystem ??= this._ptrSceneSystem.Get(this.EPool);
+        }
+        
+
+        [BinaryInore, MemoryCopyMemberCopySetDefault]
+        private GridSystem _gridSystem;
+        public GridSystem GridSystem // 网格管理器
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get => this._gridSystem ??= this.PtrGridSystem.Get(this.EPool);
+        }
+
+        [BinaryInore, MemoryCopyMemberCopySetDefault]
+        private BulletManager mBulletMgr;
+        public BulletManager BulletMgr // 战场中所有的子弹管理器
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get => this.mBulletMgr ??= this.PtrBulletMgr.Get(this.EPool);
+        }
+
+        [BinaryInore, MemoryCopyMemberCopySetDefault]
+        private EffectSystem mEffectSystem;
+        public EffectSystem EffectSystem // 特效管理器
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get => this.mEffectSystem ??= this.PtrEffectSystem.Get(this.EPool);
+        }
+
+        [BinaryInore, MemoryCopyMemberCopySetDefault]
+        private CommonReactableObjectManager mCommonReactObjMgr;
+        public CommonReactableObjectManager CommonReactObjMgr // 交互管理器
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get => this.mCommonReactObjMgr ??= this.PtrCommonReactObjMgr.Get(this.EPool);
+        }
+
+        [BinaryInore, MemoryCopyMemberIgnore]
+        private BattleRenderEventDistributeManager mBattleRenderEvent;
+        public BattleRenderEventDistributeManager BattleRenderEvent
+        {
+            get
+            {
+                if (this.mBattleRenderEvent == null)
+                {
+                    this.mBattleRenderEvent = new BattleRenderEventDistributeManager();
+                    this.mBattleRenderEvent.Initialize();
+                }
+                return this.mBattleRenderEvent;
+            }
+        }
+
+        [BinaryInore, MemoryCopyMemberCopySetDefault]
+        private ActorSkillDestroyManager mActorSkillDestroyMgr;
+        public ActorSkillDestroyManager ActorSkillDestroyMgr // 处理Actor技能延时销毁
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get => this.mActorSkillDestroyMgr ??= this.PtrActorSkillDestroyMgr.Get(this.EPool);
+        }
+
+        #endregion
+
+        /// <summary>
+        /// 初始化英雄出生点
+        /// </summary>
+        private void OnInitializeHeroBornPoint()
+        {
+            var pointSettings = this.Setting.PointSetting;
+
+
+        }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void Initialize(BattleInitData parameter, EventSystem eventSystem)
+        {
+            this._eventSystem = eventSystem;
+            this._ptrActorsList = new();
+            this._ptrActors = new();
+            this._ptrGuidActors = new();
+            this._ptrServerActors = new();
+
+            ref var data = ref this._data;
+            data.LogicFrameCount = BattleInitData.LogicFrameCount;
+            data.LogicFrameDeltaTime = ffloat.MakeFixNum(1, data.LogicFrameCount) + ffloat.Precision;
+            data.LogicFrameDeltaTimeMs = data.LogicFrameDeltaTime * ffloat.Thousand;
+
+            data.TimeScale = ffloat.One;
+            data.LogicFrameIndex = -1;
+            data.LogicFrameTime = ffloat.Zero;
+            data.RandomSeed = parameter.RandomSeed;
+            data.MainHeroServerID = parameter.MainHeroServerID;
+            
+            //四叉树
+            var maxS = fmath.max(parameter.SceneBlockData.Width, parameter.SceneBlockData.Height);
+            this._quadTreeSystem = this.EPool.Alloc(out this._ptrQuadTree);
+            this._quadTreeSystem.Initialize(ffloat.Zero, maxS);
+            
+            // 静态阻挡
+            this._sceneSystem = this.EPool.Alloc(out this._ptrSceneSystem);
+            this._sceneSystem.Initialize(parameter, this);
+
+            // 场景点位管理
+            this._pointSystem = this.EPool.Alloc(out this._ptrPointSystem);
+            this._pointSystem.Initialize(this);
+
+            // 初始化网格管理 
+            this._gridSystem = this.EPool.Alloc(out this.PtrGridSystem);
+            this._gridSystem.Initialize(this, parameter);
+
+            // 初始化迷雾数据
+            this._visibleSystem = this.EPool.Alloc(out this._ptrVisibleSystem);
+            this._visibleSystem.Initialize(parameter.MapVisibleCellData, parameter.MapVisibleWidth, parameter.MapVisibleHeight, parameter.MapVisibleRadius);
+
+            // 初始化子弹数据
+            this.mBulletMgr = this.EPool.Alloc(out this.PtrBulletMgr);
+            this.mBulletMgr.Initialize(this);
+
+            // 初始化特效系统
+            this.mEffectSystem = this.EPool.Alloc(out this.PtrEffectSystem);
+            this.mEffectSystem.Initialize(this);
+
+            // 初始化React管理
+            this.mCommonReactObjMgr = this.EPool.Alloc(out this.PtrCommonReactObjMgr);
+            this.mCommonReactObjMgr.Initialize(this, this._gridSystem);
+
+
+            this.mActorSkillDestroyMgr = this.EPool.Alloc(out this.PtrActorSkillDestroyMgr);
+            
+            // 队伍
+            this._ptrTeams = new OpenDictionary_int<PtrEntity<Team>>();
+            for (var camp = Setting.BattleSetting.MinCampType; camp <= Setting.BattleSetting.MaxCampType; ++camp)
+            {
+                var team = this.EPool.Alloc<Team>(out var ptrTeam);
+                team.Initialize(this, parameter.Teams[(int)camp]);
+                this._ptrTeams.Add((int)camp, ptrTeam);
+            }
+            this.InitializeGameFlow();
+            //初始化英雄出生点
+            this.OnInitializeHeroBornPoint();
+
+#if UNITY_EDITOR || DEBUG || DEVELOPMENT_BUILD
+            InitCommandInterpreterProxy();
+#endif
         }
 
         /// <summary>
-        /// 启动 UDP 监听（广播模式，支持多客户端）
+        /// 战斗开始
         /// </summary>
         public void Start()
         {
-            if (isRunning) return;
-
-            try
-            {
-                udpListener = new UdpClient();
-                
-                // 【关键1】启用地址复用，允许多个客户端绑定同一端口
-                udpListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-   
-                // 【关键2】绑定到本地端口，监听所有网络接口
-                udpListener.Client.Bind(new IPEndPoint(IPAddress.Any, UDP_PORT));
-    
-                isRunning = true;
-
-                // 【关键3】设置为后台线程
-                receiveThread = new Thread(ReceiveLoop)
-                {
-                    IsBackground = true,
-                    Name = "CommandInterpreterProxy_Receiver"
-                };
-                receiveThread.Start();
-
-                LogHandler?.Invoke($"[CommandInterpreterProxy] 已启动（广播模式），监听端口 {UDP_PORT}");
-            }
-            catch (Exception ex)
-            {
-                ErrorHandler?.Invoke($"[CommandInterpreterProxy] 启动失败: {ex.Message}");
-            }
+            StartGameFlow();
+#if UNITY_EDITOR || DEBUG || DEVELOPMENT_BUILD
+            commandInterpreterProxy.Start();
+#endif
         }
 
         /// <summary>
-        /// 停止 UDP 监听
+        /// 战斗结束
         /// </summary>
-        public void Stop()
+        public void End()
         {
-            if (!isRunning) return;
 
-            isRunning = false;
-
-            if (udpListener != null)
-            {
-                try
-                {
-                    udpListener.Close();
-                    udpListener.Dispose();
-                }
-                catch { }
-                udpListener = null;
-            }
-
-            if (receiveThread != null && receiveThread.IsAlive)
-            {
-                receiveThread.Join(1000); // 等待最多 1 秒
-            }
-
-            LogHandler?.Invoke("[CommandInterpreterProxy] 已停止");
         }
 
         /// <summary>
-        /// UDP 接收循环（在独立线程运行）
+        /// 
         /// </summary>
-        private void ReceiveLoop()
+        public void Destroy()
         {
-            IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+            this.PtrGridSystem.Free(this.EPool);
+            this._gridSystem = default;
+            this.PtrBulletMgr.Free(this.EPool);
+            this.mBulletMgr = default;
+            this.PtrEffectSystem.Free(this.EPool);
+            this.mEffectSystem = default;
+            this.PtrActorSkillDestroyMgr.Free(this.EPool);
+            this.mActorSkillDestroyMgr = default;
+            
+            this._ptrSceneSystem.Free(this.EPool);
+            this._ptrSceneSystem = default;
+#if UNITY_EDITOR || DEBUG || DEVELOPMENT_BUILD
+            LogManager.Log( "[CommandInterpreterProxy] Stopping...");
+            commandInterpreterProxy.Stop();
+#endif
+        }
 
-            while (isRunning)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="frameIndex"></param>
+        /// <param name="keyFrameList"></param>
+        /// <returns></returns>
+        public bool FrameUpdate(int frameIndex, List<KeyFrameCmd> keyFrameList)
+        {
+            this.LogicFrameTime += this.LogicFrameDeltaTime;
+            var nLogicTicks = System.DateTime.Now.Ticks;
+            var fDeltaTime = this.LogicFrameDeltaTime;
+            var fDeltaTimeMS = this.LogicFrameDeltaTimeMS;
+            var fFrameTime = this.LogicFrameTime;
+            this._data.LogicFrameIndex = frameIndex;
+
+            var allActorsList = AllActorsList;
+
+            foreach (var keyFrameCmd in keyFrameList)
             {
-                try
+                switch (keyFrameCmd.Cmd)
                 {
-                    byte[] data = udpListener.Receive(ref remoteEP);
-                    
-                    // 解析数据：前4字节为帧号(int)，后续为命令字符串(UTF8)
-                    if (data.Length >= 4)
-                    {
-                        int targetFrame = BitConverter.ToInt32(data, 0);
-                        string command = Encoding.UTF8.GetString(data, 4, data.Length - 4);
-
-                        if (!string.IsNullOrWhiteSpace(command))
+                    case EBattleCmd.Move:
                         {
-                            lock (commandQueueLock)
+                            //var moveCmd = (MoveKeyFrameCmd)keyFrameCmd;
+                            var position = keyFrameCmd.SendIndex;
+
+
+                            for (int i = 0; i < allActorsList.Count; i++)
                             {
-                                commandQueue.Enqueue(new CommandData(targetFrame, command));
+                                var actor = allActorsList[i];
+                                if (actor.PositionIndex != position)
+                                    continue;
+                                actor.SetKeyFrameCacheSpaceCache(EBattleCmd.Move, keyFrameCmd);
                             }
                         }
-                    }
-                }
-                catch (SocketException)
-                {
-                    // 正常关闭时会抛出此异常，忽略
-                    if (!isRunning) break;
-                }
-                catch (Exception ex)
-                {
-                    if (isRunning)
-                    {
-                        LogHandler?.Invoke($"[CommandInterpreterProxy] 接收错误: {ex.Message}");
-                    }
+                        break;
+                    case EBattleCmd.DirectionSkill:
+                        {
+                            var skillCmd = (DirectionSkillKeyFrameCmd)keyFrameCmd;
+                            var position = skillCmd.SendIndex;
+
+
+                            for (int i = 0; i < allActorsList.Count; i++)
+                            {
+                                var actor = allActorsList[i];
+                                if (actor.PositionIndex != position)
+                                    continue;
+                                actor.DoSkill(skillCmd);
+                            }
+                        }
+                        break;
+                    case EBattleCmd.NormalBtn:
+                        {
+                            //var normalCmd = (NormalButtonKeyFrameCmd)keyFrameCmd;
+                            var position = keyFrameCmd.SendIndex;
+
+                            for (int i = 0; i < allActorsList.Count; i++)
+                            {
+                                var actor = allActorsList[i];
+                                if (actor.PositionIndex != position)
+                                    continue;
+                                actor.DoNormalBtnCmd((NormalButtonKeyFrameCmd)keyFrameCmd);
+                            }
+                            break;
+                        }
                 }
             }
-        }
-
-        /// <summary>
-        /// 处理待执行的命令（应在逻辑线程每帧调用）
-        /// </summary>
-        /// <param name="currentFrame">当前逻辑帧号</param>
-        public void ProcessPendingCommands(int currentFrame)
-        {
-            // 从队列中取出所有命令
-            while (true)
+            for (var camp = Setting.BattleSetting.MinCampType; camp <= Setting.BattleSetting.MaxCampType; ++camp)
             {
-                CommandData cmdData;
-                bool hasCommand = false;
-
-                lock (commandQueueLock)
-                {
-                    if (commandQueue.Count > 0)
-                    {
-                        cmdData = commandQueue.Dequeue();
-                        hasCommand = true;
-                    }
-                    else
-                    {
-                        cmdData = default;
-                    }
-                }
-
-                if (!hasCommand) break;
-
-                // 判断是否需要延迟执行
-                if (cmdData.TargetFrame <= 0 || cmdData.TargetFrame <= currentFrame)
-                {
-                    // 立即执行（TargetFrame <= 0 表示立即执行）
-                    ExecuteCommand(cmdData.Command);
-                }
-                else
-                {
-                    // 加入延迟队列
-                    delayedCommands.Add(cmdData);
-                }
+                this._ptrTeams[(int)camp].Get(this.EPool).FrameUpdate(fDeltaTime, fDeltaTimeMS);
             }
 
-            // 检查延迟队列中是否有需要执行的命令
-            for (int i = delayedCommands.Count - 1; i >= 0; i--)
+
+            allActorsList = AllActorsList;
+
+            // 更新所有单位的渲染数据
+            for (int i = 0; i < allActorsList.Count; i++)
             {
-                if (delayedCommands[i].TargetFrame <= currentFrame)
-                {
-                    ExecuteCommand(delayedCommands[i].Command);
-                    delayedCommands.RemoveAt(i);
-                }
+                var actor = allActorsList[i];
+                actor.UpdateRender();
+
+                // // 更新召唤物AI
+                // if (actor.ActorType == EActorType.Summoner)
+                // {
+                //     actor.UpdateSummonerAI(fDeltaTime);
+                // }
             }
-        }
-
-        /// <summary>
-        /// 执行单条命令
-        /// </summary>
-        private void ExecuteCommand(string command)
-        {
-            LogHandler?.Invoke($"[CommandInterpreterProxy] 执行: {command}");
-
+            
+           this.BulletMgr.FrameUpdate(fDeltaTime);
+           
+           this.EffectSystem.FrameUpdate(this);
+           this.CommonReactObjMgr.FrameUpdate(fDeltaTime);
+#if UNITY_EDITOR || DEBUG || DEVELOPMENT_BUILD
             try
             {
-                string result = interpreter.Execute(command);
-
-                if (result.StartsWith("Error:"))
-                {
-                    ErrorHandler?.Invoke($"[CommandInterpreterProxy] {result}");
-                }
-                else
-                {
-                    LogHandler?.Invoke($"[CommandInterpreterProxy] {result}");
-                }
+                commandInterpreterProxy.ProcessPendingCommands(frameIndex);
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
-                ErrorHandler?.Invoke($"[CommandInterpreterProxy] 执行异常: {ex.Message}");
+                LogManager.LogError($"[CommandInterpreterProxy] Exception: {ex}");
+            }
+#endif
+            return true;
+        }
+
+        /// <summary>
+        /// 生成一个单位索引，用于创建新的单位
+        /// 索引范围为[1, int.MaxValue]
+        /// </summary>
+        public int GenerateActorIndex()
+        {
+            if (this.Data.GenerateActorIndex < 1)
+            {
+                // 这里可以产生异常，如创建单位数量超过了int.MaxValue则单位索引可能重复
+                // 防止产生负数索引 负数索引在某些地方会有特殊含义
+                // 例如负数的阵营索引与0被用于buff归属判断
+                this.Data.GenerateActorIndex = 1;
+            }
+            return this.Data.GenerateActorIndex++;
+        }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="actor"></param>
+        public void AddActor(Actor actor)
+        {
+            if (actor == null)
+                return;
+            this._ptrActorsList.Add(actor.Ptr);
+            this._ptrActors.Add(actor.ActorIndex, actor.Ptr);
+            this._ptrGuidActors.Add(actor.PtrGUID, actor.Ptr);
+
+            this._actorsCache.Dirty();
+            this._actorsCacheList.Dirty();
+            this._actorsGuidCache.Dirty();
+
+            if (actor.ServerID != -1)
+            {
+                this._ptrServerActors.Add(actor.ServerID, actor.Ptr);
             }
         }
 
         /// <summary>
-        /// 注册变量到解释器
+        /// 
         /// </summary>
-        public void RegisterVariable(string name, object value)
+        /// <param name="actor"></param>
+        public void RemoveActor(Actor actor)
         {
-            interpreter.RegisterVariable(name, value);
+            if (actor == null)
+                return;
+            this._ptrActorsList.Remove(actor.Ptr);
+            this._ptrActors.Remove(actor.ActorIndex);
+            this._ptrGuidActors.Remove(actor.PtrGUID);
+            this._actorsCache.Dirty();
+            this._actorsCacheList.Dirty();
+            this._actorsGuidCache.Dirty();
+
+            if (actor.ServerID != -1)
+            {
+                this._ptrServerActors.Remove(actor.ServerID);
+            }
         }
 
         /// <summary>
-        /// 注册预设变量到解释器
+        /// 通过ActorIndex获取Actor
         /// </summary>
-        public void RegisterPresetVariable(string name, Func<object> getter)
+        /// <param name="actorIndex"></param>
+        /// <returns></returns>
+        public Actor GetActor(int actorIndex)
         {
-            interpreter.RegisterPresetVariable(name, getter);
+            return AllActors.GetValueOrDefault(actorIndex);
         }
 
         /// <summary>
-        /// 获取内部的 CommandInterpreterV2 实例
+        /// 通过ServerID获取Actor
         /// </summary>
-        public CommandInterpreterV2 Interpreter => interpreter;
-
-        /// <summary>
-        /// 释放资源
-        /// </summary>
-        public void Dispose()
+        /// <param name="serverID"></param>
+        /// <returns></returns>
+        public Actor GetActorByServerID(int serverID)
         {
-            Stop();
+            this._ptrServerActors.TryGetValue(serverID, out var ptrActor);
+            return ptrActor.Get(this.EPool);
         }
+        /// <summary>
+        /// 通过guid获取Actor
+        /// </summary>
+        /// <param name="guid"></param>
+        /// <returns></returns>
+        public Actor GetActorByGuid(uint guid)
+        {
+            return AllActorsByGuid.GetValueOrDefault(guid);
+        }
+        public bool IsActorEscape(int positionIndex)
+        {
+            foreach (var surviorResult in mSurvivorResults)
+            {
+                if (surviorResult.PositionIndex == positionIndex)
+                {
+                    return surviorResult.IsEscaped;
+                }
+            }
+            return false;
+        }
+        public bool IsActorExecuted(int positionIndex)
+        { 
+            foreach (var surviorResult in mSurvivorResults)
+            {
+                if (surviorResult.PositionIndex == positionIndex)
+                {
+                    return surviorResult.IsExecuted;
+                }
+            }
+            return false;
+        }
+        public Team GetTeam(ECampType campType)
+        {
+            this._ptrTeams.TryGetValue((int)campType, out var ptrTeam);
+            return ptrTeam.Get(this.EPool);
+        }
+
+
+
+
+#if UNITY_EDITOR || DEBUG || DEVELOPMENT_BUILD
+        [BinaryInore, MemoryCopyMemberIgnore]
+        private EventFramework.CommandInterpreterProxy commandInterpreterProxy;
+
+        void InitCommandInterpreterProxy()
+        {
+            commandInterpreterProxy = new EventFramework.CommandInterpreterProxy();
+            commandInterpreterProxy.LogHandler = (s) => LogManager.Log(s);
+            commandInterpreterProxy.ErrorHandler = (s) => LogManager.LogError(s);
+
+            commandInterpreterProxy.RegisterPresetVariable("#p", () => this.GetActorByServerID(this.Data.MainHeroServerID));
+            commandInterpreterProxy.RegisterPresetVariable("#h0", () => this.GetTeam(ECampType.CtCamp0).GetHeroByIndex(0));
+            commandInterpreterProxy.RegisterPresetVariable("#h1", () => this.GetTeam(ECampType.CtCamp0).GetHeroByIndex(1));
+            commandInterpreterProxy.RegisterPresetVariable("#r0", () => this.GetTeam(ECampType.CtCamp1).GetHeroByIndex(0));
+            commandInterpreterProxy.RegisterPresetVariable("#r1", () => this.GetTeam(ECampType.CtCamp1).GetHeroByIndex(1));
+            commandInterpreterProxy.RegisterPresetVariable("#r2", () => this.GetTeam(ECampType.CtCamp1).GetHeroByIndex(2));
+            commandInterpreterProxy.RegisterPresetVariable("#r3", () => this.GetTeam(ECampType.CtCamp1).GetHeroByIndex(3));
+            commandInterpreterProxy.RegisterPresetVariable("#r4", () => this.GetTeam(ECampType.CtCamp1).GetHeroByIndex(4));
+
+        }
+#endif
     }
 }

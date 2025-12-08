@@ -21,7 +21,7 @@ namespace EventFramework
         private int historyIndex = -1;
         private Vector2 outputScrollPos;
         private Vector2 variablesScrollPos;
-        private Vector2 helpScrollPos;
+        protected Vector2 helpScrollPos;
         private bool showVariables = true;
         private bool showHelp = true;
         private bool needFocusInput = false;
@@ -31,9 +31,6 @@ namespace EventFramework
 
         // 缓存的背景纹理
         private Texture2D outputBackgroundTex;
-
-        // UDP 广播配置
-        private const int UDP_BROADCAST_PORT = 11451;
         private UdpClient udpClient;
 
         // 广播帧号（用于指定命令在哪个逻辑帧执行）
@@ -92,7 +89,7 @@ namespace EventFramework
             }
         }
 
-        private void RegisterPresetVariables()
+        protected virtual void RegisterPresetVariables()
         {
             interpreter.RegisterPresetVariable("#sel", () => Selection.activeGameObject);
             interpreter.RegisterPresetVariable("#time", () => Time.time);
@@ -371,7 +368,7 @@ namespace EventFramework
             EditorGUILayout.EndVertical();
         }
 
-        private void DrawHelpPanel()
+        protected virtual void DrawHelpPanel()
         {
             EditorGUILayout.BeginVertical(GUILayout.Width(220));
 
@@ -431,7 +428,7 @@ namespace EventFramework
             EditorGUILayout.LabelField("远程命令", headerStyle);
             EditorGUILayout.BeginVertical("box");
             EditorGUILayout.LabelField("<color=#ff88ff>@command</color> - 广播到逻辑线程", helpStyle);
-            EditorGUILayout.LabelField($"UDP 端口: {UDP_BROADCAST_PORT}", helpStyle);
+            EditorGUILayout.LabelField($"UDP 端口: {CommandInterpreterHelper.UDP_BROADCAST_PORT}", helpStyle);
             EditorGUILayout.EndVertical();
 
             EditorGUILayout.Space();
@@ -523,12 +520,12 @@ namespace EventFramework
                 System.Buffer.BlockCopy(commandBytes, 0, data, frameBytes.Length, commandBytes.Length);
 
                 // 使用广播地址
-                IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, UDP_BROADCAST_PORT);
+                IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, CommandInterpreterHelper.UDP_BROADCAST_PORT);
 
                 udpClient.Send(data, data.Length, endPoint);
 
                 string frameInfo = $"(帧:{targetFrame})";
-                AddOutput($"<color=yellow>[UDP] 已广播到 255.255.255.255:{UDP_BROADCAST_PORT} {frameInfo}: {command}</color>");
+                AddOutput($"<color=yellow>[UDP] 已广播到 255.255.255.255:{CommandInterpreterHelper.UDP_BROADCAST_PORT} {frameInfo}: {command}</color>");
             }
             catch (System.Exception ex)
             {
