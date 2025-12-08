@@ -1,18 +1,13 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Unity.VisualScripting;
-using UnityEngine.SocialPlatforms.Impl;
-using UnityEngine.UIElements;
-using static SerializableCallback.Arg;
 
 namespace EventFramework
 {    
-    #region ½Ó¿Ú¶¨Òå
+    #region ï¿½Ó¿Ú¶ï¿½ï¿½ï¿½
 
-    /// <summary>ÃüÁî²ÎÊý»ù´¡½Ó¿Ú</summary>
+    /// <summary>ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½</summary>
     public interface ICommandArg
     {
         bool IsFunctor { get; }
@@ -20,13 +15,13 @@ namespace EventFramework
         string Format();
     }
 
-    /// <summary>¿Éµ÷ÓÃÀàÐÍ</summary>
+    /// <summary>ï¿½Éµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½</summary>
     public interface IFunctor
     {
         int Invoke(CommandInterpreterRulerV2 ruler, out ICommandArg result, params ICommandArg[] args);
     }
 
-    /// <summary>¿ÉÊýÖµÔËËãÀàÐÍ</summary>
+    /// <summary>ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½</summary>
     public interface INumeric
     {
         double ToDouble();
@@ -34,7 +29,7 @@ namespace EventFramework
         bool IsInteger { get; }
     }
 
-    /// <summary>¿É×Ö·û´®²Ù×÷ÀàÐÍ</summary>
+    /// <summary>ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½</summary>
     public interface IStringArg
     {
         string GetString();
@@ -42,7 +37,7 @@ namespace EventFramework
 
 
 
-    /// <summary>¿É³ÉÔ±·ÃÎÊÀàÐÍ</summary>
+    /// <summary>ï¿½É³ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½</summary>
     public interface IMemberAccessible
     {
         ICommandArg GetMember(string name);
@@ -54,7 +49,7 @@ namespace EventFramework
         Type[] GenericTypes { get; }
     }
 
-    /// <summary>¿ÉË÷ÒýÀàÐÍ</summary>
+    /// <summary>ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½</summary>
     public interface IIndexable : IGenericArg
     {
         int Count { get; }
@@ -68,7 +63,7 @@ namespace EventFramework
     public class CommandInterpreterRulerV2
     {
         /// <summary>
-        /// »º´æÀàÐÍ¶ÔÏó
+        /// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¶ï¿½ï¿½ï¿½
         /// </summary>
         protected Dictionary<string, CommandInterpreter_TypeArg> cacheTypes = new Dictionary<string, CommandInterpreter_TypeArg>();
 
@@ -136,7 +131,7 @@ namespace EventFramework
 
 
         /// <summary>
-        /// ÔËËã·ûµ½·½·¨ÃûµÄÓ³Éä
+        /// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½
         /// </summary>
         public virtual Dictionary<string, string> GetOperatorMethodNames => new Dictionary<string, string>
         {
@@ -167,7 +162,7 @@ namespace EventFramework
 
 
         /// <summary>
-        /// ¸ù¾ÝÀàÐÍºÍÃüÁî²ÎÊý£¬¼ÆËãÆ¥Åä·ÖÊý£¬-1±íÊ¾²»Æ¥Åä¡£·µ»ØµÄÕýÊýÊÇ¼õ·ÖÖÆ£¬Ô½µÍ·ÖÔ½ºÃ
+        /// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-1ï¿½ï¿½Ê¾ï¿½ï¿½Æ¥ï¿½ä¡£ï¿½ï¿½ï¿½Øµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¼ï¿½ï¿½ï¿½ï¿½Æ£ï¿½Ô½ï¿½Í·ï¿½Ô½ï¿½ï¿½
         /// </summary>
         /// <param name="paramType"></param>
         /// <param name="commandArg"></param>
@@ -178,48 +173,48 @@ namespace EventFramework
             bool isNumericParam = paramTypeIdx >= 0;
             bool isFloatParam = paramTypeIdx >= 7; // float or double
             bool isNumericArg = commandArg is INumeric;
-            // ÊýÖµÀàÐÍÖ®¼ä×î´ÖÂÔµÄ±ØÐëÆ¥Åä
+            // ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½Ö®ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÔµÄ±ï¿½ï¿½ï¿½Æ¥ï¿½ï¿½
             if (isNumericParam != isNumericArg)
             {
                 return -1;
             }
             if (isNumericArg)
             {
-                //Èç¹û¶¼ÊÇÊýÖµÀàÐÍ
+                //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½
                 INumeric numeric = (INumeric)commandArg;
                 if (numeric.IsInteger)
                 {
-                    //Èç¹ûargÊÇÕûÊý
+                    //ï¿½ï¿½ï¿½argï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                     if (isFloatParam)
                     {
-                        //ÕûÐÎ×ª¸¡µã£¬¿ÉÒÔÍ¨¹ý£¬µ«ÓÅÏÈ¼¶µÍ
+                        //ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ã£¬ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½
                         return 1000;
                     }
                     else
                     {
-                        //ÕûÐÎ×ªÕûÐÎ£¬¼ì²é·¶Î§
+                        //ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½Î£ï¿½ï¿½ï¿½é·¶Î§
                         var limit = maxIntLimits[paramTypeIdx];
                         long argValue = numeric.ToLong();
                         if (argValue < limit[0] || argValue > limit[1])
                         {
-                            //Òç³ö£¬²»ÄÜ×ª»»
+                            //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½
                             return -1;
                         }
-                        //Ö»ÒªÃ»ÓÐÒç³ö£¬ÈÏÎªËùÓÐÕûÐÍµÄÓÅÏÈ¼¶ÏàÍ¬£¬ÔÙÇø·Ö»áºÜ¸´ÔÓÇÒÒâÒå²»´ó
+                        //Ö»ÒªÃ»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Íµï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»ï¿½Ü¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½å²»ï¿½ï¿½
                         return 0;
                     }
                 }
                 else
                 {
-                    //Èç¹ûargÊÇ¸¡µã
+                    //ï¿½ï¿½ï¿½argï¿½Ç¸ï¿½ï¿½ï¿½
                     if (isFloatParam)
                     {
-                        //¸¡µã×ª¸¡µã£¬Ò»¶¨×ª»»
+                        //ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ã£¬Ò»ï¿½ï¿½×ªï¿½ï¿½
                         return 0;
                     }
                     else
                     {
-                        //¸¡µã×ªÕûÐÎ£¬ÊÇ²»ÔÊÐíµÄ
+                        //ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½Î£ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                         return -1;
                     }
                 }
@@ -227,17 +222,17 @@ namespace EventFramework
             else
             {
                 object rawValue = commandArg.GetRawValue();
-                // ·ÇÊýÖµÀàÐÍ
+                // ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½
                 if (rawValue == null)
                 {
                     if (paramType.IsValueType)
                     {
-                        //ÖµÀàÐÍ²ÎÊý²»Æ¥Åä
+                        //Öµï¿½ï¿½ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½Æ¥ï¿½ï¿½
                         return -1;
                     }
                     else
                     {
-                        //ÒýÓÃÀàÐÍ²ÎÊý£¬ÈÏÎªÆ¥Åä£¬²»ÓÃ¼Ó·Ö
+                        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÎªÆ¥ï¿½ä£¬ï¿½ï¿½ï¿½Ã¼Ó·ï¿½
                         return 0;
                     }
 
@@ -247,11 +242,11 @@ namespace EventFramework
                     Type argType = rawValue.GetType();
                     if (paramType == argType)
                     {
-                        return 0; // ÍêÈ«Æ¥Åä
+                        return 0; // ï¿½ï¿½È«Æ¥ï¿½ï¿½
                     }
                     else if (paramType.IsAssignableFrom(argType))
                     {
-                        return 500; // ¿É¸³ÖµÆ¥Åä
+                        return 500; // ï¿½É¸ï¿½ÖµÆ¥ï¿½ï¿½
                     }
                     else
                     {
@@ -263,7 +258,7 @@ namespace EventFramework
         }
 
         /// <summary>
-        /// ²éÕÒ×î¼ÑÆ¥ÅäµÄ·½·¨£¬²»¿¼ÂÇ¿É±ä²ÎÊý£¬¿¼ÂÇÄ¬ÈÏ²ÎÊý
+        /// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¥ï¿½ï¿½Ä·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿É±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¬ï¿½Ï²ï¿½ï¿½ï¿½
         /// </summary>
         /// <param name="Methods"></param>
         /// <param name="args"></param>
@@ -277,20 +272,20 @@ namespace EventFramework
             {
                 var method = Methods[mIdx];
                 var parameters = method.GetParameters();
-                // Èç¹û²ÎÊýÊýÁ¿¶àÓÚ´«Èë²ÎÊý£¬Ò»¶¨ÊÇ²»ÐÐµÄ
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ç²ï¿½ï¿½Ðµï¿½
                 if (args.Length > parameters.Length) continue;
                 int score = 0;
                 bool match = true;
 
                 for (int i = args.Length; i < parameters.Length; i++)
                 {
-                    // Èç¹û¶à³öÀ´µÄ²ÎÊýÃ»ÓÐÄ¬ÈÏÖµ£¬Ò»¶¨ÊÇ²»ÐÐµÄ
+                    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ä¬ï¿½ï¿½Öµï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ç²ï¿½ï¿½Ðµï¿½
                     if (!parameters[i].HasDefaultValue)
                     {
                         match = false;
                         break;
                     }
-                    //ÓÃÄ¬ÈÏ²ÎÊý£¬ÈÏÎªÊÇ±ÈÍêÈ«Æ¥Åä²îÒ»µã
+                    //ï¿½ï¿½Ä¬ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½Ç±ï¿½ï¿½ï¿½È«Æ¥ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
                     score -= 1;
                 }
                 if (!match) continue;
@@ -302,8 +297,8 @@ namespace EventFramework
                         match = false;
                         break;
                     }
-                    //¼õ·ÖÖÆ£¬·ÖÊýÔ½¸ßÔ½ºÃ
-                    //ÕâÊÇÎªÁËÈÃ²ÎÊýÉÙµÄÊ±ºòÄÜ¾¡¿ÉÄÜµ÷ÓÃ²ÎÊýÉÙµÄ·½·¨
+                    //ï¿½ï¿½ï¿½ï¿½ï¿½Æ£ï¿½ï¿½ï¿½ï¿½ï¿½Ô½ï¿½ï¿½Ô½ï¿½ï¿½
+                    //ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ã²ï¿½ï¿½ï¿½ï¿½Ùµï¿½Ê±ï¿½ï¿½ï¿½Ü¾ï¿½ï¿½ï¿½ï¿½Üµï¿½ï¿½Ã²ï¿½ï¿½ï¿½ï¿½ÙµÄ·ï¿½ï¿½ï¿½
                     score -= s; 
                 }
                 if (!match) continue;

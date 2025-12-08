@@ -34,7 +34,7 @@ namespace EventFramework
         private const int UDP_PORT = 11451;
         
         private UdpClient udpListener;
-        private CommandInterpreter interpreter;
+        private CommandInterpreterV2 interpreter;
         private Thread receiveThread;
         private volatile bool isRunning;
         
@@ -50,7 +50,7 @@ namespace EventFramework
         /// </summary>
         public CommandInterpreterProxy()
         {
-            interpreter = new CommandInterpreter();
+            interpreter = new CommandInterpreterV2();
         }
 
         /// <summary>
@@ -253,9 +253,9 @@ namespace EventFramework
         }
 
         /// <summary>
-        /// 获取内部的 CommandInterpreter 实例
+        /// 获取内部的 CommandInterpreterV2 实例
         /// </summary>
-        public CommandInterpreter Interpreter => interpreter;
+        public CommandInterpreterV2 Interpreter => interpreter;
 
         /// <summary>
         /// 释放资源
