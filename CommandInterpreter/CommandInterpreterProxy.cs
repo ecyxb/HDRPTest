@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -7,27 +7,14 @@ using EventFramework;
 
 namespace EventFramework
 {
-    /// <summary>
-    /// 命令数据结构
-    /// </summary>
-    public struct CommandData
-    {
-        public int TargetFrame;  // 目标执行帧号，0 表示立即执行
-        public string Command;   // 命令内容
 
-        public CommandData(int targetFrame, string command)
-        {
-            TargetFrame = targetFrame;
-            Command = command;
-        }
-    }
 
     /// <summary>
     /// 命令解释器代理，负责接收 UDP 命令并在逻辑线程执行
     /// 使用方式：在逻辑线程初始化时创建实例，每帧调用 ProcessPendingCommands(currentFrame)
     /// 支持多客户端同时运行（使用 UDP 广播 + 端口复用）
     /// </summary>
-    public class CommandInterpreterProxy : IDisposable, ICanRegisterPresetCommand
+    public class CommandInterpreterProxy<DataType> : IDisposable, ICanRegisterPresetCommand
     {
         public Action<string> ErrorHandler;
         public Action<string> LogHandler;
@@ -38,11 +25,11 @@ namespace EventFramework
         private volatile bool isRunning;
 
         // 线程安全的命令队列
-        private readonly object commandQueueLock = new object();
-        private readonly System.Collections.Generic.Queue<CommandData> commandQueue = new System.Collections.Generic.Queue<CommandData>();
+        protected readonly object commandQueueLock = new object();
+        protected readonly System.Collections.Generic.Queue<DataType> commandQueue = new System.Collections.Generic.Queue<DataType>();
 
         // 延迟执行的命令列表（等待特定帧执行）
-        private readonly System.Collections.Generic.List<CommandData> delayedCommands = new System.Collections.Generic.List<CommandData>();
+        protected readonly System.Collections.Generic.List<DataType> delayedCommands = new System.Collections.Generic.List<DataType>();
 
         /// <summary>
         /// 创建命令解释器代理
@@ -127,21 +114,7 @@ namespace EventFramework
                 try
                 {
                     byte[] data = udpListener.Receive(ref remoteEP);
-
-                    // 解析数据：前4字节为帧号(int)，后续为命令字符串(UTF8)
-                    if (data.Length >= 4)
-                    {
-                        int targetFrame = BitConverter.ToInt32(data, 0);
-                        string command = Encoding.UTF8.GetString(data, 4, data.Length - 4);
-
-                        if (!string.IsNullOrWhiteSpace(command))
-                        {
-                            lock (commandQueueLock)
-                            {
-                                commandQueue.Enqueue(new CommandData(targetFrame, command));
-                            }
-                        }
-                    }
+                    OnReceive(data);
                 }
                 catch (SocketException)
                 {
@@ -157,62 +130,14 @@ namespace EventFramework
                 }
             }
         }
-
-        /// <summary>
-        /// 处理待执行的命令（应在逻辑线程每帧调用）
-        /// </summary>
-        /// <param name="currentFrame">当前逻辑帧号</param>
-        public void ProcessPendingCommands(int currentFrame)
+        public virtual void OnReceive(byte[] data)
         {
-            // 从队列中取出所有命令
-            while (true)
-            {
-                CommandData cmdData;
-                bool hasCommand = false;
 
-                lock (commandQueueLock)
-                {
-                    if (commandQueue.Count > 0)
-                    {
-                        cmdData = commandQueue.Dequeue();
-                        hasCommand = true;
-                    }
-                    else
-                    {
-                        cmdData = default;
-                    }
-                }
-
-                if (!hasCommand) break;
-
-                // 判断是否需要延迟执行
-                if (cmdData.TargetFrame <= 0 || cmdData.TargetFrame <= currentFrame)
-                {
-                    // 立即执行（TargetFrame <= 0 表示立即执行）
-                    ExecuteCommand(cmdData.Command);
-                }
-                else
-                {
-                    // 加入延迟队列
-                    delayedCommands.Add(cmdData);
-                }
-            }
-
-            // 检查延迟队列中是否有需要执行的命令
-            for (int i = delayedCommands.Count - 1; i >= 0; i--)
-            {
-                if (delayedCommands[i].TargetFrame <= currentFrame)
-                {
-                    ExecuteCommand(delayedCommands[i].Command);
-                    delayedCommands.RemoveAt(i);
-                }
-            }
         }
-
         /// <summary>
         /// 执行单条命令
         /// </summary>
-        private void ExecuteCommand(string command)
+        protected void ExecuteCommand(string command)
         {
             LogHandler?.Invoke($"[CommandInterpreterProxy] 执行: {command}");
 
@@ -259,6 +184,11 @@ namespace EventFramework
         public void RegisterPresetFunc(string name, object func)
         {
             interpreter.RegisterPresetFunc(name, func);
+        }
+
+        public void RegisterPresetFunc(string name, Type type, string funcname)
+        {
+            interpreter.RegisterPresetFunc(name, type, funcname);
         }
 
         /// <summary>

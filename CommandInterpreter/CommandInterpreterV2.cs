@@ -55,6 +55,7 @@ namespace EventFramework
     {
         void RegisterPresetVariable(string name, Func<object> obj);
         void RegisterPresetFunc(string name, object func);
+        void RegisterPresetFunc(string name, Type cls, string funcname);
     }
 
     #region 解释器 V2
@@ -82,6 +83,15 @@ namespace EventFramework
         {
             if (!name.StartsWith("#")) name = "#" + name;
             _presetVariables[name] = () => CommandArgFactory.Wrap(func);
+        }
+        public void RegisterPresetFunc(string name, Type type, string funcname)
+        {
+            if (!name.StartsWith("#")) name = "#" + name;
+            if (type == null)
+                return;
+            var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Static |BindingFlags.NonPublic).Where(m => m.Name == funcname).ToArray();
+            if(methods.Length == 0) return;
+            _presetVariables[name] = () => new CommandInterpreter_MethodGroupArg(type, methods);
         }
 
         public string Execute(string input)

@@ -1,267 +1,290 @@
-using System;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-using EventFramework;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace EventFramework
 {
     /// <summary>
-    /// 命令数据结构
+    /// 把任意对象包装为 ICommandArg 的工厂类
     /// </summary>
-    public struct CommandData
+    public static class CommandArgFactory
     {
-        public int TargetFrame;  // 目标执行帧号，0 表示立即执行
-        public string Command;   // 命令内容
-
-        public CommandData(int targetFrame, string command)
+        public static ICommandArg Wrap(object value)
         {
-            TargetFrame = targetFrame;
-            Command = command;
+            if (value == null) return CommandInterpreter_NullArg.Instance;
+            if (value is ICommandArg arg) return arg;
+
+            if (value is bool b) return CommandInterpreter_BoolArg.From(b);
+            if (value is string s) return new CommandInterpreter_StringArg(s);
+            if (value is int i) return CommandInterpreter_NumericArg.FromInt(i);
+            if (value is long l) return CommandInterpreter_NumericArg.FromInt(l);
+            if (value is float f) return CommandInterpreter_NumericArg.FromFloat(f);
+            if (value is double d) return CommandInterpreter_NumericArg.FromFloat(d);
+            if (value is short sh) return CommandInterpreter_NumericArg.FromInt(sh);
+            if (value is byte by) return CommandInterpreter_NumericArg.FromInt(by);
+            if (value is Delegate del) return new CommandInterpreter_DelegateArg(del);
+            if (value is Type t) return new CommandInterpreter_TypeArg(t);
+            if (value is IDictionary dict) return new CommandInterpreter_DictArg(dict);
+            if (value is IList list) return new CommandInterpreter_ListArg(list);
+
+            return new CommandInterpreter_ObjectArg(value);
+        }
+
+        public static ICommandArg ParseLiteral(string expr)
+        {
+            if (expr == "null") return CommandInterpreter_NullArg.Instance;
+            if (expr == "true") return CommandInterpreter_BoolArg.True;
+            if (expr == "false") return CommandInterpreter_BoolArg.False;
+
+            if (expr.StartsWith("\"") && expr.EndsWith("\"") && expr.Length >= 2)
+                return new CommandInterpreter_StringArg(expr.Substring(1, expr.Length - 2));
+
+            // 支持负数浮点数字面量
+            if (expr.Contains(".") || expr.EndsWith("f") || expr.EndsWith("F"))
+            {
+                string numStr = expr.TrimEnd('f', 'F');
+                if (double.TryParse(numStr, out double dVal)) return CommandInterpreter_NumericArg.FromFloat(dVal);
+            }
+
+            // 支持负数整数字面量
+            if (int.TryParse(expr, out int iVal)) return CommandInterpreter_NumericArg.FromInt(iVal);
+            if (long.TryParse(expr, out long lVal2)) return CommandInterpreter_NumericArg.FromInt(lVal2);
+            if ((expr.EndsWith("L") || expr.EndsWith("l")) && long.TryParse(expr.TrimEnd('L', 'l'), out long lVal))
+                return CommandInterpreter_NumericArg.FromInt(lVal);
+
+            return null;
         }
     }
 
-    /// <summary>
-    /// 命令解释器代理，负责接收 UDP 命令并在逻辑线程执行
-    /// 使用方式：在逻辑线程初始化时创建实例，每帧调用 ProcessPendingCommands(currentFrame)
-    /// 支持多客户端同时运行（使用 UDP 广播 + 端口复用）
-    /// </summary>
-    public class CommandInterpreterProxy : IDisposable
+
+    /// <summary>成员访问辅助类，提供通用的成员访问实现</summary>
+    public static class MemberAccessHelper
     {
-        public Action<string> ErrorHandler;
-        public Action<string> LogHandler;
+        private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private const BindingFlags StaticFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
-        private UdpClient udpListener;
-        private CommandInterpreterV2 interpreter;
-        private Thread receiveThread;
-        private volatile bool isRunning;
-
-        // 线程安全的命令队列
-        private readonly object commandQueueLock = new object();
-        private readonly System.Collections.Generic.Queue<CommandData> commandQueue = new System.Collections.Generic.Queue<CommandData>();
-
-        // 延迟执行的命令列表（等待特定帧执行）
-        private readonly System.Collections.Generic.List<CommandData> delayedCommands = new System.Collections.Generic.List<CommandData>();
-
-        /// <summary>
-        /// 创建命令解释器代理
-        /// </summary>
-        public CommandInterpreterProxy()
+        public static ICommandArg GetMember(object target, Type type, string name, bool isStatic = false)
         {
-            interpreter = new CommandInterpreterV2();
+            if (target == null && !isStatic) return CommandInterpreter_ErrorArg.Create(ErrorCodes.NullReference);
+            var flags = isStatic ? StaticFlags : InstanceFlags;
+
+            // 检查是否是泛型方法调用 (如 TestGenericMethod<int>)
+            int genericStart = name.IndexOf('<');
+            string baseName = name;
+            Type[] genericTypeArgs = null;
+
+            if (genericStart > 0 && name.EndsWith(">"))
+            {
+                baseName = name.Substring(0, genericStart);
+                string genericArgsStr = name.Substring(genericStart + 1, name.Length - genericStart - 2);
+                genericTypeArgs = ParseGenericTypeArgs(genericArgsStr);
+            }
+
+            var prop = type.GetProperty(baseName, flags);
+            if (prop != null && genericTypeArgs == null)
+            {
+                try { return CommandArgFactory.Wrap(prop.GetValue(target)); }
+                catch (Exception ex) { return CommandInterpreter_ErrorArg.Create(ErrorCodes.UnknownError, ex.Message); }
+            }
+
+            var field = type.GetField(baseName, flags);
+            if (field != null && genericTypeArgs == null)
+            {
+                try { return CommandArgFactory.Wrap(field.GetValue(target)); }
+                catch (Exception ex) { return CommandInterpreter_ErrorArg.Create(ErrorCodes.UnknownError, ex.Message); }
+            }
+
+            var methods = type.GetMethods(flags).Where(m => m.Name == baseName).ToArray();
+            if (methods.Length > 0)
+            {
+                var methodGroup = new CommandInterpreter_MethodGroupArg(target, methods);
+                // 如果有泛型类型参数，返回带有泛型参数的方法组
+                if (genericTypeArgs != null && genericTypeArgs.Length > 0)
+                {
+                    return methodGroup.WithGenericTypes(genericTypeArgs);
+                }
+                return methodGroup;
+            }
+
+            return CommandInterpreter_ErrorArg.Create(ErrorCodes.MemberNotFound, $"{type.Name}.{name}");
         }
 
         /// <summary>
-        /// 启动 UDP 监听（广播模式，支持多客户端）
+        /// 解析泛型类型参数字符串
         /// </summary>
-        public void Start()
+        private static Type[] ParseGenericTypeArgs(string genericArgsStr)
         {
-            if (isRunning) return;
+            var typeNames = CommandInterpreterHelper.SplitGenericArguments(genericArgsStr);
+            var types = new List<Type>();
 
-            try
+            foreach (var typeName in typeNames)
             {
-                udpListener = new UdpClient();
-
-                // 【关键1】启用地址复用，允许多个客户端绑定同一端口
-                udpListener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-
-                // 【关键2】绑定到本地端口，监听所有网络接口
-                udpListener.Client.Bind(new IPEndPoint(IPAddress.Any, CommandInterpreterHelper.UDP_BROADCAST_PORT));
-
-                isRunning = true;
-
-                // 【关键3】设置为后台线程
-                receiveThread = new Thread(ReceiveLoop)
-                {
-                    IsBackground = true,
-                    Name = "CommandInterpreterProxy_Receiver"
-                };
-                receiveThread.Start();
-
-                LogHandler?.Invoke($"[CommandInterpreterProxy] 已启动（广播模式），监听端口 {CommandInterpreterHelper.UDP_BROADCAST_PORT}");
+                Type t = FindType(typeName.Trim());
+                if (t == null) return null;
+                types.Add(t);
             }
-            catch (Exception ex)
-            {
-                ErrorHandler?.Invoke($"[CommandInterpreterProxy] 启动失败: {ex.Message}");
-            }
+
+            return types.ToArray();
         }
 
         /// <summary>
-        /// 停止 UDP 监听
+        /// 简单的类型查找
         /// </summary>
-        public void Stop()
+        private static Type FindType(string typeName)
         {
-            if (!isRunning) return;
-
-            isRunning = false;
-
-            if (udpListener != null)
+            // 基本类型
+            switch (typeName.ToLower())
             {
-                try
-                {
-                    udpListener.Close();
-                    udpListener.Dispose();
-                }
-                catch { }
-                udpListener = null;
+                case "int": return typeof(int);
+                case "float": return typeof(float);
+                case "double": return typeof(double);
+                case "bool": return typeof(bool);
+                case "string": return typeof(string);
+                case "byte": return typeof(byte);
+                case "long": return typeof(long);
+                case "short": return typeof(short);
+                case "char": return typeof(char);
+                case "object": return typeof(object);
             }
 
-            if (receiveThread != null && receiveThread.IsAlive)
-            {
-                receiveThread.Join(1000); // 等待最多 1 秒
-            }
+            // 尝试直接查找
+            Type t = Type.GetType(typeName);
+            if (t != null) return t;
 
-            LogHandler?.Invoke("[CommandInterpreterProxy] 已停止");
+            // 在所有程序集中查找
+            return AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => { try { return a.GetTypes(); } catch { return Type.EmptyTypes; } })
+                .FirstOrDefault(type => type.Name == typeName || type.FullName == typeName);
         }
 
-        /// <summary>
-        /// UDP 接收循环（在独立线程运行）
-        /// </summary>
-        private void ReceiveLoop()
+        public static bool SetMember(object target, Type type, string name, ICommandArg value)
         {
-            IPEndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+            if (target == null) return false;
+            object rawValue = value.GetRawValue();
 
-            while (isRunning)
+            var prop = type.GetProperty(name, InstanceFlags);
+            if (prop != null && prop.CanWrite)
             {
-                try
-                {
-                    byte[] data = udpListener.Receive(ref remoteEP);
-
-                    // 解析数据：前4字节为帧号(int)，后续为命令字符串(UTF8)
-                    if (data.Length >= 4)
-                    {
-                        int targetFrame = BitConverter.ToInt32(data, 0);
-                        string command = Encoding.UTF8.GetString(data, 4, data.Length - 4);
-
-                        if (!string.IsNullOrWhiteSpace(command))
-                        {
-                            lock (commandQueueLock)
-                            {
-                                commandQueue.Enqueue(new CommandData(targetFrame, command));
-                            }
-                        }
-                    }
-                }
-                catch (SocketException)
-                {
-                    // 正常关闭时会抛出此异常，忽略
-                    if (!isRunning) break;
-                }
-                catch (Exception ex)
-                {
-                    if (isRunning)
-                    {
-                        LogHandler?.Invoke($"[CommandInterpreterProxy] 接收错误: {ex.Message}");
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// 处理待执行的命令（应在逻辑线程每帧调用）
-        /// </summary>
-        /// <param name="currentFrame">当前逻辑帧号</param>
-        public void ProcessPendingCommands(int currentFrame)
-        {
-            // 从队列中取出所有命令
-            while (true)
-            {
-                CommandData cmdData;
-                bool hasCommand = false;
-
-                lock (commandQueueLock)
-                {
-                    if (commandQueue.Count > 0)
-                    {
-                        cmdData = commandQueue.Dequeue();
-                        hasCommand = true;
-                    }
-                    else
-                    {
-                        cmdData = default;
-                    }
-                }
-
-                if (!hasCommand) break;
-
-                // 判断是否需要延迟执行
-                if (cmdData.TargetFrame <= 0 || cmdData.TargetFrame <= currentFrame)
-                {
-                    // 立即执行（TargetFrame <= 0 表示立即执行）
-                    ExecuteCommand(cmdData.Command);
-                }
-                else
-                {
-                    // 加入延迟队列
-                    delayedCommands.Add(cmdData);
-                }
+                try { prop.SetValue(target, ConvertValue(rawValue, prop.PropertyType)); return true; }
+                catch { return false; }
             }
 
-            // 检查延迟队列中是否有需要执行的命令
-            for (int i = delayedCommands.Count - 1; i >= 0; i--)
+            var field = type.GetField(name, InstanceFlags);
+            if (field != null && !field.IsInitOnly)
             {
-                if (delayedCommands[i].TargetFrame <= currentFrame)
+                try { field.SetValue(target, ConvertValue(rawValue, field.FieldType)); return true; }
+                catch { return false; }
+            }
+            return false;
+        }
+
+        public static IEnumerable<string> GetMemberNames(Type type)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
+            foreach (var prop in type.GetProperties(flags)) yield return prop.Name;
+            foreach (var field in type.GetFields(flags)) yield return field.Name;
+        }
+
+        private static object ConvertValue(object value, Type targetType)
+        {
+            if (value == null) return null;
+            if (targetType.IsAssignableFrom(value.GetType())) return value;
+            return Convert.ChangeType(value, targetType);
+        }
+    }
+
+    public static class CommandInterpreterHelper
+    {
+        public const int UDP_BROADCAST_PORT = 11451;
+        /// <summary>
+        /// 将参数转换为目标类型
+        /// </summary>
+        /// <param name="arg"></param>
+        /// <param name="targetType"></param>
+        /// <returns></returns>
+        public static object ConvertArg(object arg, Type targetType)
+        {
+            if (arg == null) return null;
+            if (targetType.IsAssignableFrom(arg.GetType())) return arg;
+            return Convert.ChangeType(arg, targetType);
+        }
+        public static object[] ConvertArgsWitdhDefaults(ICommandArg[] args, ParameterInfo[] parameters)
+        {
+            object[] convertedArgs = new object[parameters.Length];
+            int i = 0;
+            for (; i < args.Length; i++)
+            {
+                convertedArgs[i] = ConvertArg(args[i].GetRawValue(), parameters[i].ParameterType);
+            }
+            for (; i < parameters.Length; i++)
+            {
+                convertedArgs[i] = parameters[i].DefaultValue;
+            }
+            return convertedArgs;
+        }
+        public static Type FindGenericTypeDefinition(string baseName, int typeParamCount)
+        {
+            var commonGenerics = new Dictionary<string, Type>
+            {
+                { "List", typeof(List<>) },
+                { "Dictionary", typeof(Dictionary<,>) },
+                { "HashSet", typeof(HashSet<>) },
+            };
+
+            if (commonGenerics.TryGetValue(baseName, out Type common) &&
+                common.GetGenericArguments().Length == typeParamCount)
+                return common;
+
+            string fullName = baseName + "`" + typeParamCount;
+            return AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => { try { return a.GetTypes(); } catch { return Type.EmptyTypes; } })
+                .FirstOrDefault(t => t.IsGenericTypeDefinition &&
+                    (t.Name == fullName || t.GetGenericArguments().Length == typeParamCount && t.Name.StartsWith(baseName)));
+        }
+
+        public static string[] SplitGenericArguments(string argsStr)
+        {
+            var args = new List<string>();
+            int depth = 0, start = 0;
+
+            for (int i = 0; i < argsStr.Length; i++)
+            {
+                char c = argsStr[i];
+                if (c == '<') depth++;
+                else if (c == '>') depth--;
+                else if (c == ',' && depth == 0)
                 {
-                    ExecuteCommand(delayedCommands[i].Command);
-                    delayedCommands.RemoveAt(i);
+                    args.Add(argsStr.Substring(start, i - start).Trim());
+                    start = i + 1;
                 }
             }
+            if (start < argsStr.Length) args.Add(argsStr.Substring(start).Trim());
+            return args.ToArray();
         }
 
-        /// <summary>
-        /// 执行单条命令
-        /// </summary>
-        private void ExecuteCommand(string command)
+        public static Type ParseGenericType(string typeName, Func<string, Type> FindRawType)
         {
-            LogHandler?.Invoke($"[CommandInterpreterProxy] 执行: {command}");
+            int bracketStart = typeName.IndexOf('<');
+            if (bracketStart < 0) return null;
 
-            try
+            string baseName = typeName.Substring(0, bracketStart).Trim();
+            string argsStr = typeName.Substring(bracketStart + 1, typeName.Length - bracketStart - 2);
+
+            var typeArgs = CommandInterpreterHelper.SplitGenericArguments(argsStr);
+            Type genericDef = CommandInterpreterHelper.FindGenericTypeDefinition(baseName, typeArgs.Length);
+            if (genericDef == null) return null;
+
+            Type[] argTypes = new Type[typeArgs.Length];
+            for (int i = 0; i < typeArgs.Length; i++)
             {
-                string result = interpreter.Execute(command);
-
-                if (result.StartsWith("Error:"))
-                {
-                    ErrorHandler?.Invoke($"[CommandInterpreterProxy] {result}");
-                }
-                else
-                {
-                    LogHandler?.Invoke($"[CommandInterpreterProxy] {result}");
-                }
+                argTypes[i] = FindRawType(typeArgs[i].Trim());
+                if (argTypes[i] == null) return null;
             }
-            catch (Exception ex)
-            {
-                ErrorHandler?.Invoke($"[CommandInterpreterProxy] 执行异常: {ex.Message}");
-            }
-        }
 
-        /// <summary>
-        /// 注册变量到解释器
-        /// </summary>
-        public void RegisterVariable(string name, object value)
-        {
-            interpreter.RegisterVariable(name, value);
-        }
-
-        /// <summary>
-        /// 注册预设变量到解释器
-        /// </summary>
-        public void RegisterPresetVariable(string name, Func<object> getter)
-        {
-            interpreter.RegisterPresetVariable(name, getter);
-        }
-
-        /// <summary>
-        /// 获取内部的 CommandInterpreterV2 实例
-        /// </summary>
-        public CommandInterpreterV2 Interpreter => interpreter;
-
-        /// <summary>
-        /// 释放资源
-        /// </summary>
-        public void Dispose()
-        {
-            Stop();
+            try { return genericDef.MakeGenericType(argTypes); }
+            catch { return null; }
         }
     }
 }

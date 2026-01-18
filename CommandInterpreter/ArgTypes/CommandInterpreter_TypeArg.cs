@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -50,13 +50,13 @@ namespace EventFramework
 
         public int Invoke(CommandInterpreterRulerV2 ruler, out ICommandArg result, params ICommandArg[] args)
         {
-            
+
             result = null;
             try
             {
                 ConstructorInfo bestMatch = ruler.FindBestMatch(Value.GetConstructors(), args);
                 if (bestMatch != null)
-                {   
+                {
                     object[] convertedArgs = CommandInterpreterHelper.ConvertArgsWitdhDefaults(args, bestMatch.GetParameters());
                     result = CommandArgFactory.Wrap(bestMatch.Invoke(convertedArgs));
                 }

@@ -1,12 +1,10 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System;
-using Framework.Core;
-using System.Linq;
 
 namespace EventFramework
 {
@@ -16,7 +14,7 @@ namespace EventFramework
     /// </summary>
     public abstract class CommandInterpreterWindow : EditorWindow, ICanRegisterPresetCommand
     {
-        private CommandInterpreterV2 interpreter;
+        private CommandInterpreterAST interpreter;
         private string inputCommand = "";
         private List<(string, float)> outputHistory = new List<(string, float)>();
         private List<string> commandHistory = new List<string>();
@@ -55,9 +53,6 @@ namespace EventFramework
         private Texture2D outputBackgroundTex;
         private UdpClient udpClient;
 
-        // 广播帧号（用于指定命令在哪个逻辑帧执行）
-        public virtual int broadcastTargetFrame => 0;
-
         // [MenuItem("Tools/命令解释器 %#T")]
         // public static void ShowWindow()
         // {
@@ -68,7 +63,7 @@ namespace EventFramework
         private void OnEnable()
         {
             Instance = this;
-            interpreter = new CommandInterpreterV2();
+            interpreter = new CommandInterpreterAST();
 
             // 注册预设变量（只读，动态计算）
             RegisterPresetVariables();
@@ -135,6 +130,10 @@ namespace EventFramework
         {
             interpreter.RegisterPresetFunc(name, func);
         }
+        public void RegisterPresetFunc(string name, Type type, string funcname)
+        {
+            interpreter.RegisterPresetFunc(name, type, funcname);
+        }
         private void RegisterDefaultVariables()
         {
             // 注册 Selection 相关
@@ -196,7 +195,7 @@ namespace EventFramework
             {
                 RegisterDefaultVariables();
             }
-            if (GUILayout.Button("单元测试", EditorStyles.toolbarButton, GUILayout.Width(60)))
+            if (GUILayout.Button(" 单元测试", EditorStyles.toolbarButton, GUILayout.Width(60)))
             {
                 CommandInterpreterTestsV2.RunAllTests();
             }
@@ -484,11 +483,24 @@ namespace EventFramework
             // 显示输入命令
             AddOutput($"<color=cyan>> {cmd}</color>");
 
+            DoExecuteCmd(cmd);
+
+            // 清空输入
+            inputCommand = "";
+
+            // 滚动到底部
+            outputScrollPos = new Vector2(0, float.MaxValue);
+
+            Repaint();
+        }
+
+        protected virtual void DoExecuteCmd(string cmd)
+        {
             // 检查是否是广播命令（以 @ 开头）
             if (cmd.StartsWith("@"))
             {
                 string broadcastCmd = cmd.Substring(1); // 去掉 @ 前缀
-                BroadcastToLogicThread(broadcastCmd, broadcastTargetFrame);
+                BroadcastToProxy(broadcastCmd);
             }
             else
             {
@@ -510,21 +522,15 @@ namespace EventFramework
                 }
             }
 
-            // 清空输入
-            inputCommand = "";
-
-            // 滚动到底部
-            outputScrollPos = new Vector2(0, float.MaxValue);
-
-            Repaint();
         }
+
 
         /// <summary>
         /// 通过 UDP 广播命令到逻辑线程
         /// </summary>
         /// <param name="command">命令内容</param>
         /// <param name="targetFrame">目标执行帧号</param>
-        private void BroadcastToLogicThread(string command, int targetFrame)
+        private void BroadcastToProxy(string command)
         {
             try
             {
@@ -534,25 +540,31 @@ namespace EventFramework
                     udpClient.EnableBroadcast = true;
                 }
 
-                // 构造数据：前4字节为帧号(int)，后续为命令字符串(UTF8)
-                byte[] frameBytes = System.BitConverter.GetBytes(targetFrame);
+                // 构造数据：0~4字节为帧号(int)，4~8字节为发送者的服务器id(int)，后续为命令字符串(UTF8)
+                //byte[] frameBytes = System.BitConverter.GetBytes(targetFrame);
+                //byte[] sendHeroServerID = System.BitConverter.GetBytes(C);
                 byte[] commandBytes = Encoding.UTF8.GetBytes(command);
-                byte[] data = new byte[frameBytes.Length + commandBytes.Length];
-                System.Buffer.BlockCopy(frameBytes, 0, data, 0, frameBytes.Length);
-                System.Buffer.BlockCopy(commandBytes, 0, data, frameBytes.Length, commandBytes.Length);
+                byte[] customBytes = MakeBroadcastData();
+                byte[] data = new byte[customBytes.Length + commandBytes.Length];
+                System.Buffer.BlockCopy(customBytes, 0, data, 0, customBytes.Length);
+                System.Buffer.BlockCopy(commandBytes, 0, data, customBytes.Length, commandBytes.Length);
 
                 // 使用广播地址
                 IPEndPoint endPoint = new IPEndPoint(IPAddress.Broadcast, CommandInterpreterHelper.UDP_BROADCAST_PORT);
 
                 udpClient.Send(data, data.Length, endPoint);
 
-                string frameInfo = $"(帧:{targetFrame})";
-                AddOutput($"<color=yellow>[UDP] 已广播到 255.255.255.255:{CommandInterpreterHelper.UDP_BROADCAST_PORT} {frameInfo}: {command}</color>");
+                AddOutput($"<color=yellow>[UDP] 已广播到 255.255.255.255:{CommandInterpreterHelper.UDP_BROADCAST_PORT} : {command}</color>");
             }
             catch (System.Exception ex)
             {
                 AddOutput($"<color=red>[UDP] 广播失败: {ex.Message}</color>");
             }
+        }
+
+        protected virtual byte[] MakeBroadcastData()
+        {
+            return new byte[0];
         }
 
 
