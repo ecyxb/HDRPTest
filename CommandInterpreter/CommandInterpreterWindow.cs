@@ -1,10 +1,11 @@
-﻿using UnityEngine;
-using UnityEditor;
+﻿using EventFramework.Test;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System;
+using UnityEditor;
+using UnityEngine;
 
 namespace EventFramework
 {
@@ -15,6 +16,11 @@ namespace EventFramework
     public abstract class CommandInterpreterWindow : EditorWindow, ICanRegisterPresetCommand
     {
         private CommandInterpreterAST interpreter;
+        public static void RunTest()
+        {
+            CommandInterpreterASTTests.RunAllTests();
+        }
+
         private string inputCommand = "";
         private List<(string, float)> outputHistory = new List<(string, float)>();
         private List<string> commandHistory = new List<string>();
@@ -176,6 +182,7 @@ namespace EventFramework
             EditorGUILayout.EndVertical();
         }
 
+
         private void DrawToolbar()
         {
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
@@ -194,10 +201,6 @@ namespace EventFramework
             if (GUILayout.Button("刷新选中", EditorStyles.toolbarButton, GUILayout.Width(60)))
             {
                 RegisterDefaultVariables();
-            }
-            if (GUILayout.Button(" 单元测试", EditorStyles.toolbarButton, GUILayout.Width(60)))
-            {
-                CommandInterpreterTestsV2.RunAllTests();
             }
 
             GUILayout.FlexibleSpace();

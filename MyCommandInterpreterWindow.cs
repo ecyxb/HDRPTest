@@ -20,6 +20,13 @@ public class MyCommandInterpreterWindow : CommandInterpreterWindow
         var window = GetWindow<ASTViewerWindow>("AST 可视化");
         window.minSize = new Vector2(500, 400);
     }
+
+    [MenuItem("Tools/命令解释器单元测试")]
+    public static void RunTests()
+    {
+        CommandInterpreterWindow.RunTest();
+    }
+
 }
 
 /// <summary>

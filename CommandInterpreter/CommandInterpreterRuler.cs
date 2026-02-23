@@ -18,7 +18,7 @@ namespace EventFramework
     /// <summary>可调用类型</summary>
     public interface IFunctor
     {
-        int Invoke(CommandInterpreterRulerV2 ruler, out ICommandArg result, params ICommandArg[] args);
+        int Invoke(CommandInterpreterRuler ruler, out ICommandArg result, params ICommandArg[] args);
     }
 
     /// <summary>可数值运算类型</summary>
@@ -60,7 +60,7 @@ namespace EventFramework
     }
     #endregion
 
-    public class CommandInterpreterRulerV2
+    public class CommandInterpreterRuler
     {
         /// <summary>
         /// 缓存类型对象

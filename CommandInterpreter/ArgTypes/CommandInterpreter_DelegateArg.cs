@@ -12,7 +12,7 @@ namespace EventFramework
         public object GetRawValue() => Value;
         public string Format() => $"Delegate:{Value.Method.Name}";
 
-        public int Invoke(CommandInterpreterRulerV2 ruler, out ICommandArg result, params ICommandArg[] args)
+        public int Invoke(CommandInterpreterRuler ruler, out ICommandArg result, params ICommandArg[] args)
         {
             object[] rawArgs = args.Select(a => a.GetRawValue()).ToArray();
             try

@@ -48,7 +48,7 @@ namespace EventFramework
             foreach (var field in Value.GetFields(flags)) yield return field.Name;
         }
 
-        public int Invoke(CommandInterpreterRulerV2 ruler, out ICommandArg result, params ICommandArg[] args)
+        public int Invoke(CommandInterpreterRuler ruler, out ICommandArg result, params ICommandArg[] args)
         {
 
             result = null;
@@ -77,7 +77,7 @@ namespace EventFramework
                 return ErrorCodes.UnknownError;
             }
         }
-        public ICommandArg InvokeConstructor(CommandInterpreterRulerV2 ruler, ICommandArg[] args)
+        public ICommandArg InvokeConstructor(CommandInterpreterRuler ruler, ICommandArg[] args)
         {
             Invoke(ruler, out ICommandArg result, args);
             return result;

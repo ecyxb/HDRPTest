@@ -39,7 +39,7 @@ namespace EventFramework
             };
         }
 
-        public int Invoke(CommandInterpreterRulerV2 ruler, out ICommandArg result, params ICommandArg[] args)
+        public int Invoke(CommandInterpreterRuler ruler, out ICommandArg result, params ICommandArg[] args)
         {
             // 如果指定了泛型类型参数，先尝试构造泛型方法
             if (GenericTypes != null && GenericTypes.Length > 0)
@@ -79,7 +79,7 @@ namespace EventFramework
         /// <summary>
         /// 调用带有显式泛型类型参数的方法
         /// </summary>
-        private int InvokeGenericMethod(CommandInterpreterRulerV2 ruler, out ICommandArg result, ICommandArg[] args)
+        private int InvokeGenericMethod(CommandInterpreterRuler ruler, out ICommandArg result, ICommandArg[] args)
         {
             // 筛选出泛型方法
             var genericMethods = Methods.Where(m => m.IsGenericMethodDefinition).ToArray();
@@ -137,7 +137,7 @@ namespace EventFramework
         /// <summary>
         /// 尝试通过类型推断调用泛型方法
         /// </summary>
-        private int TryInvokeWithTypeInference(CommandInterpreterRulerV2 ruler, ICommandArg[] args, out ICommandArg result)
+        private int TryInvokeWithTypeInference(CommandInterpreterRuler ruler, ICommandArg[] args, out ICommandArg result)
         {
             result = null;
 
@@ -309,7 +309,7 @@ namespace EventFramework
         /// <summary>
         /// 检查参数是否兼容
         /// </summary>
-        private bool IsArgsCompatible(CommandInterpreterRulerV2 ruler, ParameterInfo[] parameters, ICommandArg[] args)
+        private bool IsArgsCompatible(CommandInterpreterRuler ruler, ParameterInfo[] parameters, ICommandArg[] args)
         {
             int requiredParams = parameters.Count(p => !p.HasDefaultValue);
             if (args.Length < requiredParams || args.Length > parameters.Length)

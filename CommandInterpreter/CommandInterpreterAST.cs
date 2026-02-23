@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using EventFramework.AST;
+using UnityEngine;
 
 namespace EventFramework
 {
@@ -15,9 +16,9 @@ namespace EventFramework
         private readonly Dictionary<string, ICommandArg> _variables = new Dictionary<string, ICommandArg>();
         private readonly Dictionary<string, Func<ICommandArg>> _presetVariables = new Dictionary<string, Func<ICommandArg>>();
 
-        public CommandInterpreterRulerV2 Ruler { get; private set; } = new CommandInterpreterRulerV2();
+        public CommandInterpreterRuler Ruler { get; private set; } = new CommandInterpreterRuler();
 
-        private readonly ASTParser _parser = new ASTParser();
+        public readonly ASTParser _parser = new ASTParser();
 
         #region 公共 API
 
@@ -69,7 +70,6 @@ namespace EventFramework
         {
             input = input?.Trim();
             if (string.IsNullOrEmpty(input)) return "命令为空";
-
             // 解析为 AST
             var statements = _parser.ParseMultiple(input);
 
@@ -108,26 +108,26 @@ namespace EventFramework
             return string.Join("\n", results);
         }
 
-        /// <summary>
-        /// 解析并返回 AST (用于调试或高级用途)
-        /// </summary>
-        public ASTNode Parse(string input)
-        {
-            return _parser.Parse(input);
-        }
+        ///// <summary>
+        ///// 解析并返回 AST (用于调试或高级用途)
+        ///// </summary>
+        //public ASTNode Parse(string input)
+        //{
+        //    return _parser.Parse(input);
+        //}
 
-        /// <summary>
-        /// 解析多条语句并返回 AST 列表
-        /// </summary>
-        public List<ASTNode> ParseMultiple(string input)
-        {
-            return _parser.ParseMultiple(input);
-        }
+        ///// <summary>
+        ///// 解析多条语句并返回 AST 列表
+        ///// </summary>
+        //public List<ASTNode> ParseMultiple(string input)
+        //{
+        //    return _parser.ParseMultiple(input);
+        //}
 
         /// <summary>
         /// 执行 AST
         /// </summary>
-        public ICommandArg Evaluate(ASTNode node)
+        protected ICommandArg Evaluate(ASTNode node)
         {
             var evaluator = new ASTEvaluator(Ruler, _variables, _presetVariables);
             return evaluator.Evaluate(node);

@@ -491,6 +491,8 @@ namespace EventFramework.AST
             Advance(); // Ìø¹ý <
 
             bool isGeneric = Check(ETokenType.Identifier);
+            Advance();
+            isGeneric = isGeneric && (Check(ETokenType.Greater) || Check(ETokenType.Comma));
 
             _current = saved;
             return isGeneric;

@@ -8,12 +8,12 @@ namespace EventFramework.AST
     /// </summary>
     public class ASTEvaluator : IASTVisitor<ICommandArg>
     {
-        private readonly CommandInterpreterRulerV2 _ruler;
+        private readonly CommandInterpreterRuler _ruler;
         private readonly Dictionary<string, ICommandArg> _variables;
         private readonly Dictionary<string, Func<ICommandArg>> _presetVariables;
 
         public ASTEvaluator(
-    CommandInterpreterRulerV2 ruler,
+    CommandInterpreterRuler ruler,
           Dictionary<string, ICommandArg> variables,
     Dictionary<string, Func<ICommandArg>> presetVariables)
         {

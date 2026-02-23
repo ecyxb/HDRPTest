@@ -67,7 +67,7 @@ namespace EventFramework
     {
         private readonly Dictionary<string, ICommandArg> _variables = new Dictionary<string, ICommandArg>();
         private readonly Dictionary<string, Func<ICommandArg>> _presetVariables = new Dictionary<string, Func<ICommandArg>>();
-        public CommandInterpreterRulerV2 Ruler { get; private set; } = new CommandInterpreterRulerV2();
+        public CommandInterpreterRuler Ruler { get; private set; } = new CommandInterpreterRuler();
 
         #region 公共 API
 

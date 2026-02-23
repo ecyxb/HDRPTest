@@ -6,11 +6,11 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-namespace EventFramework
+namespace EventFramework.Test
 {
     /// <summary>
-    /// CommandInterpreterAST 单元测试
-    /// 在 Unity 编辑器中运行: 菜单 -> Tools -> Run CommandInterpreterAST Tests
+    /// CommandInterpreterV2 单元测试
+    /// 在 Unity 编辑器中运行: 菜单 -> Tools -> Run CommandInterpreterV2 Tests
     /// </summary>
     public static class CommandInterpreterTestsV2
     {
@@ -31,7 +31,7 @@ public static Action<string> LogHandler = Console.WriteLine;
             failCount = 0;
             failedTests.Clear();
 
-            LogHandler("========== CommandInterpreterAST 单元测试开始 ==========");
+            LogHandler("========== CommandInterpreterV2 单元测试开始 ==========");
 
             // 1. ICommandArg 类型测试
             TestCommandArgTypes();
@@ -294,7 +294,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestCommandArgTypes()
         {
             LogHandler("--- 1. ICommandArg 类型测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // NullArg
             var nullArg = interp.Evaluate("null");
@@ -339,7 +339,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestLiterals()
         {
             LogHandler("--- 2. 字面量解析测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 整数
             AssertEqual(42L, interp.Evaluate("42").GetRawValue(), "整数字面量");
@@ -376,7 +376,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestVariables()
         {
             LogHandler("--- 3. 变量测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 注册变量
             interp.RegisterVariable("myInt", 100);
@@ -414,7 +414,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestPresetVariables()
         {
             LogHandler("--- 4. 预设变量测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             int counter = 0;
             interp.RegisterPresetVariable("#counter", () => ++counter);
@@ -446,7 +446,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestArithmeticOperators()
         {
             LogHandler("--- 5. 算术运算符测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 基本运算 - V2 整数运算返回 long
             AssertEqual(7L, interp.Evaluate("3 + 4").GetRawValue(), "加法");
@@ -494,7 +494,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestComparisonOperators()
         {
             LogHandler("--- 6. 比较运算符测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 相等比较 - V2 返回 BoolArg
             AssertEqual(true, interp.Evaluate("5 == 5").GetRawValue(), "相等 true");
@@ -528,7 +528,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestLogicalOperators()
         {
             LogHandler("--- 7. 逻辑运算符测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // AND
             AssertEqual(true, interp.Evaluate("true && true").GetRawValue(), "true && true");
@@ -558,7 +558,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestOperatorPrecedence()
         {
             LogHandler("--- 8. 运算符优先级测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 乘除优先于加减
             AssertEqual(14L, interp.Evaluate("2 + 3 * 4").GetRawValue(), "2 + 3 * 4 = 14");
@@ -587,7 +587,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestConstructors()
         {
             LogHandler("--- 9. 构造函数调用测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // Vector3 构造
             var v3 = interp.Evaluate("new Vector3(1, 2, 3)");
@@ -625,7 +625,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestArrays()
         {
             LogHandler("--- 10. 数组创建和访问测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 创建数组
             var intArray = interp.Evaluate("new int[5]");
@@ -666,7 +666,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestMemberAccess()
         {
             LogHandler("--- 11. 成员访问测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // Vector3 成员访问
             interp.RegisterVariable("v", new Vector3(1, 2, 3));
@@ -699,7 +699,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestMethodCalls()
         {
             LogHandler("--- 12. 方法调用测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 字符串方法
             interp.RegisterVariable("str", "Hello World");
@@ -729,7 +729,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestMethodOverloads()
         {
             LogHandler("--- 13. 方法重载测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // Mathf 静态方法（多种重载）
             AssertEqual(5, interp.Evaluate("Mathf.Max(3, 5)").GetRawValue(), "Mathf.Max(3, 5)");
@@ -754,7 +754,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestStaticMembers()
         {
             LogHandler("--- 14. 静态成员访问测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // Vector3 静态属性
             AssertEqual(Vector3.zero, interp.Evaluate("Vector3.zero").GetRawValue(), "Vector3.zero");
@@ -782,7 +782,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestGenerics()
         {
             LogHandler("--- 15. 泛型类型测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // List<T>
             var intList = interp.Evaluate("new List<int>()");
@@ -807,7 +807,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestStringOperations()
         {
             LogHandler("--- 16. 字符串操作测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 字符串连接
             AssertEqual("HelloWorld", interp.Evaluate("\"Hello\" + \"World\"").GetRawValue(), "字符串连接");
@@ -827,7 +827,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestAssignment()
         {
             LogHandler("--- 17. 赋值测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 简单赋值
             interp.Execute("a = 10");
@@ -861,7 +861,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestMemberAssignment()
         {
             LogHandler("--- 18. 成员赋值测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 测试类
             var testObj = new TestClassV2();
@@ -888,7 +888,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestIndexAssignment()
         {
             LogHandler("--- 19. 索引赋值测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 数组索引赋值
             var arr = new int[] { 1, 2, 3, 4, 5 };
@@ -927,7 +927,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestErrorHandling()
         {
             LogHandler("--- 20. 错误处理测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 未找到变量
             var notFound = interp.Evaluate("notExistVar");
@@ -963,7 +963,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestComplexExpressions()
         {
             LogHandler("--- 21. 复杂表达式测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 链式方法调用
             interp.RegisterVariable("str", "  Hello World  ");
@@ -1016,7 +1016,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestPrivateMemberAccess()
         {
             LogHandler("--- 22. 私有成员访问测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             var testObj = new TestClassV2();
             interp.RegisterVariable("obj", testObj);
@@ -1048,7 +1048,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestNestedCalls()
         {
             LogHandler("--- 23. 嵌套调用测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 嵌套构造函数
             var result = interp.Evaluate("new Vector3(Mathf.Sin(0), Mathf.Cos(0), 0)");
@@ -1076,7 +1076,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestInterfaceCapabilities()
         {
             LogHandler("--- 24. ICommandArg 接口能力测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // INumeric 测试
             var numArg = interp.Evaluate("42");
@@ -1132,7 +1132,7 @@ public static Action<string> LogHandler = Console.WriteLine;
         private static void TestGenericMethods()
         {
             LogHandler("--- 25. Generic Method 测试 ---");
-            var interp = new CommandInterpreterAST();
+            var interp = new CommandInterpreterV2();
 
             // 基本泛型方法调用 - 静态方法
             var genericArg = interp.Evaluate("TestClassV2.TestGenericMethod<int>(42)");
@@ -1168,44 +1168,4 @@ public static Action<string> LogHandler = Console.WriteLine;
 
         #endregion
     }
-
-    /// <summary>
-    /// V2 测试用的辅助类
-    /// </summary>
-    public class TestClassV2
-    {
-        public int PublicField = 10;
-        public int PublicProperty { get; set; } = 20;
-
-        private int privateField = 42;
-        private string PrivateProperty { get; set; } = "secret";
-        protected int protectedField = 100;
-
-        public NestedClass Nested;
-
-        private string PrivateMethod()
-        {
-            return "private result";
-        }
-
-        public class NestedClass
-        {
-            public int Value { get; set; }
-        }
-        public static string TestGenericMethod<T>(T input)
-        {
-            return input.GetType().Name;
-        }
-
-        public static string TestGenericMethod2<T1, T2>(T1 input1, T2 input2)
-        {
-            return $"{input1.GetType().Name}, {input2.GetType().Name}";
-        }
-
-        public string InstanceGenericMethod<T>(T input)
-        {
-            return input.GetType().Name;
-        }
-    }
-
-} // namespace EventFramework
+} 
